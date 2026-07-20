@@ -22,12 +22,18 @@ public class LlmClient {
     private final String baseUrl;
     private final String apiKey;
     private final String model;
+    private final double temperature;
     private final HttpClient httpClient;
 
     public LlmClient(String baseUrl, String apiKey, String model) {
+        this(baseUrl, apiKey, model, 0.3);
+    }
+
+    public LlmClient(String baseUrl, String apiKey, String model, double temperature) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.model = model;
+        this.temperature = temperature;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
                 .build();
@@ -40,7 +46,7 @@ public class LlmClient {
         try {
             JSONObject body = new JSONObject();
             body.set("model", model);
-            body.set("temperature", 0.3);
+            body.set("temperature", temperature);
             body.set("max_tokens", 2048);
 
             JSONArray messages = new JSONArray();

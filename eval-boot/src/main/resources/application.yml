@@ -51,6 +51,12 @@ llm:
   api-key: ${LLM_API_KEY:sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
   base-url: https://api.deepseek.com
   model: deepseek-chat
+  alt-models:
+    - provider: deepseek
+      base-url: https://api.deepseek.com
+      model: deepseek-chat
+      label: "DeepSeek(t=0.1)"
+      temperature: 0.1
 
 logging:
   level:

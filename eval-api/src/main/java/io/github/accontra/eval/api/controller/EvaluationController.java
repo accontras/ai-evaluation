@@ -8,6 +8,7 @@ import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.service.AiSummaryService;
+import io.github.accontra.eval.application.service.ModelConfigCache;
 import io.github.accontra.eval.application.service.RankingService;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
@@ -50,6 +51,7 @@ public class EvaluationController {
     private final EvalEventLogMapper eventLogMapper;
     private final EvalGradeMappingMapper gradeMappingMapper;
     private final RankingService rankingService;
+    private final ModelConfigCache configCache;
     private final AiSummaryService summaryService;
 
     public EvaluationController(EvalSceneService sceneService, EvalModelService modelService,
@@ -61,7 +63,8 @@ public class EvaluationController {
                                 EvalTaskLogMapper taskLogMapper, EvalObjectLogMapper objectLogMapper,
                                 EvalIndicatorLogMapper indicatorLogMapper,
                                 EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper,
-                                EvalGradeMappingMapper gradeMappingMapper, RankingService rankingService,
+                                EvalGradeMappingMapper gradeMappingMapper,
+                                ModelConfigCache configCache, RankingService rankingService,
                                 AiSummaryService summaryService) {
         this.sceneService = sceneService;
         this.modelService = modelService;
@@ -78,6 +81,7 @@ public class EvaluationController {
         this.modelEventMapper = modelEventMapper;
         this.eventLogMapper = eventLogMapper;
         this.gradeMappingMapper = gradeMappingMapper;
+        this.configCache = configCache;
         this.rankingService = rankingService;
         this.summaryService = summaryService;
     }
@@ -188,8 +192,7 @@ public class EvaluationController {
     }
 
     private EvaluationContext buildAndExecute(ExecuteEvaluationRequest req) {
-        var h1 = new ValidateAndLoadModelHandler(sceneService, modelService,
-                stageService, modelIndexService, indexService);
+        var h1 = new ValidateAndLoadModelHandler(configCache, indexService);
         var h2 = new FetchIndicatorValuesHandler();
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
         var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,

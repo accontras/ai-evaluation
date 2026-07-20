@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 方案深拷贝 DomainService — 从模型模板创建方案副本。
@@ -33,6 +32,7 @@ public class SceneCopyDomainService {
     private final EvalSceneMapper sceneMapper;
     private final EvalSceneStageMapper sceneStageMapper;
     private final EvalSceneIndexMapper sceneIndexMapper;
+    private final ModelConfigCache configCache;
 
     public SceneCopyDomainService(EvalModelService modelService,
                                    EvalModelStageService stageService,
@@ -40,7 +40,8 @@ public class SceneCopyDomainService {
                                    EvalIndexService indexService,
                                    EvalSceneMapper sceneMapper,
                                    EvalSceneStageMapper sceneStageMapper,
-                                   EvalSceneIndexMapper sceneIndexMapper) {
+                                   EvalSceneIndexMapper sceneIndexMapper,
+                                   ModelConfigCache configCache) {
         this.modelService = modelService;
         this.stageService = stageService;
         this.modelIndexService = modelIndexService;
@@ -48,6 +49,7 @@ public class SceneCopyDomainService {
         this.sceneMapper = sceneMapper;
         this.sceneStageMapper = sceneStageMapper;
         this.sceneIndexMapper = sceneIndexMapper;
+        this.configCache = configCache;
     }
 
     /**
@@ -142,7 +144,8 @@ public class SceneCopyDomainService {
         scene.setStatus("PUBLISHED");
         scene.setUpdateTime(LocalDateTime.now());
         sceneMapper.updateById(scene);
-        log.info("[SceneCopy] 发布: scene={}", scene.getCode());
+        configCache.evictScene(scene.getCode());
+        log.info("[SceneCopy] 发布: scene={}, cache evicted", scene.getCode());
     }
 
     private EvalSceneStage newEvalSceneStage(Long sceneId, EvalModelStage stage) {

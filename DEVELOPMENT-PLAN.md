@@ -43,7 +43,7 @@
 | S16 | H3 top路由 (跳过派生指标) | ✅ | 2026-07-20 | TOP JEXL路由: attrValues["dept"]=="LOGISTICS" → 命中分支, 默认fallback |
 | S17 | H4 事件/红线 双通道 | ✅ | 2026-07-20 | EventRuleEvaluator + LlmEventDetector + triggerSource: RULE/LLM/BOTH |
 | S18 | M2 验证 — 双通道对比系统 | ✅ | 2026-07-20 | 39条对比: SIG=74.4%, avgDiff=45.94, 10次批量评估 |
-| S19 | 剩余23张表 DDL+Entity+Mapper | ⏭️ | - | 已在S4完成, 跳过 |
+| S19 | 剩余23张表 DDL+Entity+Mapper | ✅ | 2026-07-20 | 已在S4提前完成: 25 Entity + 25 Mapper + V003 DDL |
 | S20 | DataPull 路径B + MQ 批量异步 | ⏭️ | - | 无MQ环境, RocketMQ 待定 |
 | S21 | 深拷贝 + 模型配置 API | ✅ | 2026-07-20 | SceneCopyDomainService 3级深拷贝 + SceneController |
 | S22 | 申诉体系 | ✅ | 2026-07-20 | AppealController: submit/approve/recalc, scoreAdjustment→adjustedTotalScore |

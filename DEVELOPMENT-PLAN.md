@@ -17,7 +17,7 @@
 | M0 | 地基 | S1-S2 | ✅ | 2/2 |
 | M1 | ★ AI 先打分 | S3-S10 | ✅ | 8/8 |
 | M2 | 规则引擎 + 对比 | S11-S18 | ✅ | 8/8 |
-| M3 | 完整系统 | S19-S30 | ✅ | 11/12 |
+| M3 | 完整系统 | S19-S30 | ✅ | 12/12 |
 | M4 | AI 深化实验 | S31-S36 | 🔄 | 0/6 |
 | M5 | 开源发布 | S37-S42 | ⬜ | 0/6 |
 
@@ -46,7 +46,7 @@
 | S19 | 剩余23张表 DDL+Entity+Mapper | ⏭️ | - | 已在S4完成, 跳过 |
 | S20 | DataPull 路径B + MQ 批量异步 | ⏭️ | - | 无MQ环境, RocketMQ 待定 |
 | S21 | 深拷贝 + 模型配置 API | ✅ | 2026-07-20 | SceneCopyDomainService 3级深拷贝 + SceneController |
-| S22 | 申诉体系 | ⬜ | - | |
+| S22 | 申诉体系 | ✅ | 2026-07-20 | AppealController: submit/approve/recalc, scoreAdjustment→adjustedTotalScore |
 | S23 | 等级映射 + 排名 + 回调 | ✅ | 2026-07-20 | GradeMapping S/A/B/C/D + 奥运排名 + CallbackNotify |
 | S24 | H6 AI 总结 多轮对话 | ✅ | 2026-07-20 | AiSummaryService 两轮自审, DeepSeek 280字总结 |
 | S25 | 配置管理 + Caffeine 缓存 | ✅ | 2026-07-20 | ModelConfigCache @Cacheable TTL 5min, H1缓存+HIT, jar启动6s |

@@ -24,9 +24,28 @@
 
 ---
 
-## 当前: S27 — 测试补充（上）
+## 当前: S29 — Docker + 文档
 
-**开始时间**: 2026-07-20 | **状态**: 🔄
+**状态**: ⬜
+
+---
+
+## S28: 测试补充（下） ✅
+
+**完成时间**: 2026-07-20
+
+| 测试类 | 用例数 | 覆盖 |
+|--------|--------|------|
+| `SceneCopyTest` | 2 | 深拷贝(stage/index/parentId remap) + 发布 |
+
+### 全量回归
+12 用例全部通过: 装配(4) + 聚合(4) + 路由(4) + 事件(5) + 排名(1) + 深拷贝(2)
+
+---
+
+## S27: 测试补充（上） ✅
+
+**完成时间**: 2026-07-20
 
 ### 新增测试
 
@@ -345,4 +364,5 @@ eval-system/
 | 2026-07-20 | S23 ✅ | 等级+排名+回调: GradeMapping+奥运排名+CallbackNotify |
 | 2026-07-20 | S24 ✅ | AI总结: AiSummaryService两轮自审, 280字 |
 | 2026-07-20 | S25 ✅ | 缓存: ModelConfigCache+Caffeine, restart.sh |
-| 2026-07-20 | S27 🔄 | 测试: EventRuleEvaluator(5)+RankingService(1) 全绿 |
+| 2026-07-20 | S27 ✅ | 测试上: EventRuleEvaluator(5)+RankingService(1) 全绿 |
+| 2026-07-20 | S28 ✅ | 测试下: SceneCopy(2)+全量回归12用例全绿 |

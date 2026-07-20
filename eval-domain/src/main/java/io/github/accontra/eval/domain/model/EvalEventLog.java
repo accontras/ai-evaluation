@@ -41,6 +41,7 @@ public class EvalEventLog {
     private String triggerValues;
 
     private String isRedLine;
+    private String triggerSource;
 
     private String status;
 
@@ -188,6 +189,8 @@ public class EvalEventLog {
     public void setIsRedLine(String isRedLine) {
         this.isRedLine = isRedLine;
     }
+    public String getTriggerSource() { return triggerSource; }
+    public void setTriggerSource(String v) { triggerSource = v; }
 
     public String getStatus() {
         return status;

@@ -1,5 +1,7 @@
 package io.github.accontra.eval;
 
+import io.github.accontra.eval.application.event.EventRuleEvaluator;
+import io.github.accontra.eval.application.event.LlmEventDetector;
 import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
@@ -9,6 +11,7 @@ import io.github.accontra.eval.application.strategy.RuleScoreStrategy;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
 import io.github.accontra.eval.domain.service.*;
+import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +23,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 端到端测试: H1→H2→H3(双通道)→H6 全链路 + 真实 DeepSeek 打分 + 结果落库
+ * 端到端测试: H1→H2→H3(双通道)→H4(事件)→H6 全链路。
  */
 @SpringBootTest
 class EndToEndTest {
@@ -33,9 +36,12 @@ class EndToEndTest {
     @Autowired private LlmScoringStrategy llmStrategy;
     @Autowired private RuleScoreStrategy ruleStrategy;
     @Autowired private DualChannelScoringService dualChannel;
+    @Autowired private LlmClient llmClient;
     @Autowired private EvalTaskLogMapper taskLogMapper;
     @Autowired private EvalObjectLogMapper objectLogMapper;
     @Autowired private EvalIndicatorLogMapper indicatorLogMapper;
+    @Autowired private EvalModelEventMapper modelEventMapper;
+    @Autowired private EvalEventLogMapper eventLogMapper;
 
     @Test
     void fullPipelineWithRealLlm() {
@@ -44,9 +50,11 @@ class EndToEndTest {
                 stageService, modelIndexService, indexService);
         var h2 = new FetchIndicatorValuesHandler();
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
+        var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,
+                new EventRuleEvaluator(), new LlmEventDetector(llmClient));
         var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper);
 
-        var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h6));
+        var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h4, h6));
 
         // ---- 准备 Context ----
         var ctx = new EvaluationContext();

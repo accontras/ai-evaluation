@@ -130,20 +130,31 @@ let compareChart, distChart;
 fetch(API+'/scene/list').then(r=>r.json()).then(d=>{
   const sel = document.getElementById('sceneSelect');
   sel.innerHTML = (d.data||[]).map(s=>`<option value="${s.code}">${s.code} - ${s.name||''} (${s.status})</option>`).join('');
-}).catch(()=>{sel.innerHTML='<option>LOGISTICS-2026Q2</option>';});
+  sel.onchange = ()=>loadDashboard();
+  setTimeout(()=>loadDashboard(),300);
+}).catch(()=>{const sel=document.getElementById('sceneSelect');sel.innerHTML='<option>LOGISTICS-2026Q2</option>';});
 
-// 加载统计
-function loadStats(){
-  fetch(API+'/evaluation/compare/stats').then(r=>r.json()).then(d=>{
+// 加载 Dashboard 数据 (真实DB)
+function loadDashboard(){
+  const scene=document.getElementById('sceneSelect').value;
+  fetch(API+'/evaluation/dashboard/'+scene).then(r=>r.json()).then(d=>{
     if(d.code!=='00000') return;
-    const s=d.data;
-    document.getElementById('statTotal').textContent=s.totalCompared||'-';
-    document.getElementById('statSig').textContent=s.significantCount||'-';
-    document.getElementById('statAvgDiff').textContent=s.avgDiff||'-';
-    document.getElementById('statSigRate').textContent=s.significantRate||'-';
+    const dd=d.data;
+    // 统计面板
+    document.getElementById('statTotal').textContent=dd.total||0;
+    document.getElementById('statAvgDiff').textContent=dd.avgScore||'0';
+    document.getElementById('statSig').textContent=(dd.indicatorDiffs||[]).filter(i=>i.diffLevel==='SIGNIFICANT').length;
+    document.getElementById('statSigRate').textContent=dd.total>0?((dd.indicatorDiffs||[]).filter(i=>i.diffLevel==='SIGNIFICANT').length/dd.total*100).toFixed(1)+'%':'0%';
+    // 等级分布图
+    renderDistChart(dd.gradeDistribution||{});
+    // 对比图
+    renderCompareChart(dd.indicatorDiffs||[]);
+    // 明细表格
+    renderDetailTable(dd.recentResults||[]);
+    // 最近结果
+    renderRecent(dd.recentResults||[]);
   }).catch(()=>{});
 }
-loadStats();
 
 function runEvaluation(){
   const btn = document.querySelector('.btn-primary');
@@ -163,33 +174,50 @@ function runEvaluation(){
       btn.textContent='▶ 执行评估'; btn.disabled=false;
       if(d.code!=='00000'){showError(d.message);return;}
       showResult(d.data);
-      loadStats();
-      setTimeout(loadCharts,500);
+      setTimeout(()=>loadDashboard(),800);
     }).catch(e=>{btn.textContent='▶ 执行评估'; btn.disabled=false; showError(e.message);});
 }
 
 function showResult(data){
   const indicators = (data.indicators||[]).map(i=>`
-    <div class="result-card">
-      <div class="top"><span>${i.indexName||i.indexCode}</span><span style="font-size:18px;font-weight:bold">${i.score||'-'}分</span></div>
-      <div class="reason">${i.reason||''}</div>
-    </div>`).join('');
+    <div class="result-card"><div class="top"><span>${i.indexName||i.indexCode}</span><span style="font-size:18px;font-weight:bold">${i.score||'-'}分</span></div><div class="reason">${i.reason||''}</div></div>`).join('');
   document.getElementById('evalResult').innerHTML = `
-    <div class="result-card">
-      <div class="top"><span class="score">${data.totalScore}分</span><span class="grade grade-${data.grade||'N/A'}">${data.grade||'N/A'}</span></div>
-      <div class="meta">${data.scoringMode} | 风险: ${data.riskLevel} | ${data.bizId}</div>
-    </div>${indicators}`;
-  // 加到最近结果
-  addRecent(data);
+    <div class="result-card"><div class="top"><span class="score">${data.totalScore}分</span><span class="grade grade-${data.grade||'N/A'}">${data.grade||'N/A'}</span></div><div class="meta">${data.scoringMode} | 风险: ${data.riskLevel} | ${data.bizId}</div></div>${indicators}`;
 }
 
-let recentList = [];
-function addRecent(data){
-  recentList.unshift(data);
-  if(recentList.length>10) recentList.pop();
-  document.getElementById('recentResults').innerHTML = recentList.map(d=>`
-    <div class="result-card"><div class="top"><span>${d.bizId}</span><span class="score" style="font-size:18px">${d.totalScore} <span class="grade grade-${d.grade||'N/A'}" style="font-size:13px">${d.grade||'N/A'}</span></span></div>
-    <div class="meta">${d.scoringMode} | ${d.riskLevel}</div></div>`).join('');
+function renderRecent(items){
+  document.getElementById('recentResults').innerHTML = items.slice(0,10).map(d=>`
+    <div class="result-card"><div class="top"><span>${d.targetCode||d.bizId}</span><span class="score" style="font-size:18px">${d.totalScore} <span class="grade grade-${d.grade||'N/A'}" style="font-size:13px">${d.grade||'N/A'}</span></span></div><div class="meta">排名: ${d.evalRank}/${d.rankTotal} | ${d.riskLevel}</div></div>`).join('');
+}
+
+function renderDistChart(grades){
+  const ctx=document.getElementById('distChart').getContext('2d');
+  if(distChart) distChart.destroy();
+  const order=['S','A','B','C','D'];
+  const data=order.map(g=>grades[g]||0);
+  distChart = new Chart(ctx,{
+    type:'bar',data:{labels:order.map(g=>g+'级'),datasets:[{label:'对象数',data,backgroundColor:['#22c55e','#38bdf8','#facc15','#f97316','#ef4444']}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#334155'},ticks:{color:'#94a3b8'}},x:{ticks:{color:'#94a3b8'}}}}});
+}
+
+function renderCompareChart(diffs){
+  const ctx=document.getElementById('compareChart').getContext('2d');
+  if(compareChart) compareChart.destroy();
+  // 按指标分组, 取平均 LLM vs Rule
+  const byIdx={}; diffs.forEach(d=>{const k=d.indexCode;if(!byIdx[k])byIdx[k]={llm:[],rule:[]};byIdx[k].llm.push(d.llmScore);byIdx[k].rule.push(d.ruleScore);});
+  const keys=Object.keys(byIdx).slice(0,8);
+  const avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+  compareChart = new Chart(ctx,{
+    type:'bar',data:{labels:keys,datasets:[
+      {label:'LLM 平均分',data:keys.map(k=>avg(byIdx[k].llm)),backgroundColor:'#38bdf8'},
+      {label:'规则引擎',data:keys.map(k=>avg(byIdx[k].rule)),backgroundColor:'#f97316'}]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{y:{grid:{color:'#334155'},ticks:{color:'#94a3b8'}},x:{ticks:{color:'#94a3b8'}}}}});
+}
+
+function renderDetailTable(items){
+  const tbody=document.querySelector('#detailTable tbody');
+  if(!items.length){tbody.innerHTML='<tr><td colspan="6">暂无数据, 先执行评估</td></tr>';return;}
+  tbody.innerHTML=items.map(d=>`<tr><td>${d.targetCode}</td><td>${d.totalScore}</td><td><span class="grade grade-${d.grade}">${d.grade}</span></td><td>${d.evalRank||'-'}/${d.rankTotal||'-'}</td><td>${d.riskLevel}</td><td>${d.summaryStatus}</td></tr>`).join('');
 }
 
 function showError(msg){const e=document.getElementById('evalError');e.textContent=msg;e.style.display='block';}
@@ -200,46 +228,7 @@ function switchTab(tab){
   document.getElementById('tabCompare').style.display=tab==='compare'?'block':'none';
   document.getElementById('tabDist').style.display=tab==='dist'?'block':'none';
   document.getElementById('tabDetail').style.display=tab==='detail'?'block':'none';
-  if(tab==='detail') loadDetailTable();
 }
-
-function loadCharts(){
-  // 对比图表 - 从数据库取最近指标数据
-  const scene=document.getElementById('sceneSelect').value;
-  // 用 compare/stats API 和 rank 数据来填充图表
-  renderDistChart();
-}
-
-function renderDistChart(){
-  fetch(API+'/evaluation/rank/'+document.getElementById('sceneSelect').value,{method:'POST'})
-    .then(r=>r.json()).then(()=>{
-      // 分布图: 按等级分组
-      const grades={S:0,A:0,B:0,C:0,D:0};
-      const ctx=document.getElementById('distChart').getContext('2d');
-      if(distChart) distChart.destroy();
-      // 简化: 用固定演示数据, 实际可连DB查询
-      distChart = new Chart(ctx,{
-        type:'bar',data:{labels:['S(≥90)','A(80-89)','B(70-79)','C(60-69)','D(<60)'],
-          datasets:[{label:'对象数',data:[2,5,8,4,2],backgroundColor:['#22c55e','#38bdf8','#facc15','#f97316','#ef4444']}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-          scales:{y:{grid:{color:'#334155'},ticks:{color:'#94a3b8'}},x:{ticks:{color:'#94a3b8'}}}}});
-    });
-}
-
-function loadDetailTable(){
-  const tbody=document.querySelector('#detailTable tbody');
-  tbody.innerHTML='<tr><td colspan="6" class="loading">加载中...</td></tr>';
-  // 简化: 从最近的 evaluate 结果构建
-  if(recentList.length===0){tbody.innerHTML='<tr><td colspan="6">先执行评估...</td></tr>';return;}
-  tbody.innerHTML=recentList.map(d=>{
-    const llm=d.indicators?d.indicators.reduce((s,i)=>s+(i.score||0),0)/d.indicators.length:0;
-    return `<tr><td>${d.bizId}</td><td>${d.totalScore}</td><td><span class="grade grade-${d.grade||'N/A'}">${d.grade||'N/A'}</span></td>
-    <td>${llm.toFixed(1)}</td><td>-</td><td>-</td></tr>`;
-  }).join('');
-}
-
-// 初始加载图表
-setTimeout(()=>{renderDistChart();},1000);
 </script>
 </body>
 </html>

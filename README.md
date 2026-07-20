@@ -89,6 +89,19 @@ eval-system/
 └── restart.sh
 ```
 
+## 文档
+
+| 文档 | 路径 |
+|------|------|
+| AI 功能实现 | [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) |
+| 核心架构设计 | [docs/design/ai-evaluation-system-architecture.md](docs/design/ai-evaluation-system-architecture.md) |
+| 技术计划 | [docs/design/TECHNICAL-PLAN.md](docs/design/TECHNICAL-PLAN.md) |
+| 术语表 | [docs/design/GLOSSARY.md](docs/design/GLOSSARY.md) |
+| 架构决策 (ADR) | [docs/design/adr/](docs/design/adr/) — 21 条 |
+| 开发计划 | [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md) |
+| 执行明细 | [PLAN-DETAIL.md](PLAN-DETAIL.md) |
+| 编码规范 | [AGENTS.md](AGENTS.md) |
+
 ## License
 
 Apache 2.0

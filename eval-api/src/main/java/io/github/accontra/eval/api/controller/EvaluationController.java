@@ -35,10 +35,6 @@ public class EvaluationController {
 
     private static final Logger log = LoggerFactory.getLogger(EvaluationController.class);
 
-    private final EvalSceneService sceneService;
-    private final EvalModelService modelService;
-    private final EvalModelStageService stageService;
-    private final EvalModelIndexService modelIndexService;
     private final EvalIndexService indexService;
     private final LlmScoringStrategy llmStrategy;
     private final RuleScoreStrategy ruleStrategy;
@@ -54,9 +50,7 @@ public class EvaluationController {
     private final ModelConfigCache configCache;
     private final AiSummaryService summaryService;
 
-    public EvaluationController(EvalSceneService sceneService, EvalModelService modelService,
-                                EvalModelStageService stageService, EvalModelIndexService modelIndexService,
-                                EvalIndexService indexService,
+    public EvaluationController(EvalIndexService indexService,
                                 LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
                                 DualChannelScoringService dualChannel,
                                 LlmClient llmClient,
@@ -66,10 +60,6 @@ public class EvaluationController {
                                 EvalGradeMappingMapper gradeMappingMapper,
                                 ModelConfigCache configCache, RankingService rankingService,
                                 AiSummaryService summaryService) {
-        this.sceneService = sceneService;
-        this.modelService = modelService;
-        this.stageService = stageService;
-        this.modelIndexService = modelIndexService;
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;
         this.ruleStrategy = ruleStrategy;

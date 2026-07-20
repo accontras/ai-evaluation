@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: eval-system
+  profiles:
+    active: dev
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:mysql://localhost:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 2396308dqf
+    driver-class-name: com.mysql.cj.jdbc.Driver
+# RabbitMQ + Redis 后面 S20/S25 再配，先注释
+#  rabbitmq:
+#    host: localhost
+#    port: 5672
+#    username: guest
+#    password: guest
+#  data:
+#    redis:
+#      host: localhost
+#      port: 6379
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+llm:
+  provider: deepseek
+  api-key: ${LLM_API_KEY:your-api-key}
+  base-url: https://api.deepseek.com
+  model: deepseek-chat
+
+logging:
+  level:
+    io.github.accontra.eval: DEBUG

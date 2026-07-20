@@ -25,4 +25,4 @@ project: AI评估组件
 
 路径 B 和 C 可共存，结果统一 merge。
 
-详细设计见：[DataPullService取数策略重构-viewCode分组驱动-GLM-5.1.md](../../key-figure/DataPullService取数策略重构-viewCode分组驱动-GLM-5.1.md)
+详细设计见 DataPullService 取数策略重构相关文档。

@@ -1,8 +1,7 @@
 # AI 评估系统 — 完整技术方案
 
 > **版本**: v1.0 | **日期**: 2026-07-20 | **作者**: 戴曲夫
-> **基于**: zvos-evaluation 知识库全部架构文档、ADR、数据模型、开发笔记、OpenSpec 变更
-> **目标**: 基于 Java 17 + Spring Boot 3.3 从零重建独立评估系统
+> **目标**: 基于 Java 17 + Spring Boot 3.3 构建独立评估系统
 
 ---
 
@@ -196,7 +195,7 @@ AI 总结:
 ## 三、项目工程结构
 
 ```
-zvos-evaluation-system/
+eval-system/
 │
 ├── pom.xml                              ← 父 POM (依赖管理)
 │
@@ -1405,10 +1404,10 @@ M5: 开源发布就绪                    [Session 43-45]  ← 即 S43-S45
 | 组件 | 原因 | 新方案 |
 |------|------|--------|
 | `zi18n-common` 公共包 | 与旧系统耦合 | `eval-common` 自建 |
-| `zi18n-data-rule-api` | 若依项目耦合 | `eval-api` 独立 |
-| `zi18n-data-rule-service` | 若依项目耦合 | `eval-application` 独立 |
-| `com.zvos.i18n.rule.*` 包名 | 旧命名空间 | `io.github.accontra.eval.*` |
-| 若依 `BaseController/BaseService` | 框架依赖 | Spring Boot 原生 |
+| `zi18n-data-rule-api` | 旧框架耦合 | `eval-api` 独立 |
+| `zi18n-data-rule-service` | 旧框架耦合 | `eval-application` 独立 |
+| 旧系统包名 | 旧命名空间 | `io.github.accontra.eval.*` |
+| 旧框架 `BaseController/BaseService` | 框架依赖 | Spring Boot 原生 |
 
 ### 11.5 复用的设计资产
 

@@ -397,7 +397,6 @@ llm:
   api-key: ${LLM_API_KEY:sk-xxx}
 
 # 可替换为其他 OpenAI 兼容模型:
-#   OpenAI:     base-url: https://api.openai.com, model: gpt-4o
-#   GLM:        base-url: https://open.bigmodel.cn/api/paas/v4, model: glm-4
-#   本地 Ollama: base-url: http://localhost:11434, model: qwen2.5:7b
+#   OpenAI:      base-url: https://api.openai.com, model: gpt-4o
+#   Qwen/本地:   base-url: http://localhost:11434, model: qwen2.5:7b
 ```

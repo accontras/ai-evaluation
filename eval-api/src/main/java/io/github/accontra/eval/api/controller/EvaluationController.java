@@ -7,6 +7,7 @@ import io.github.accontra.eval.application.event.LlmEventDetector;
 import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
+import io.github.accontra.eval.application.service.AiSummaryService;
 import io.github.accontra.eval.application.service.RankingService;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
@@ -49,6 +50,7 @@ public class EvaluationController {
     private final EvalEventLogMapper eventLogMapper;
     private final EvalGradeMappingMapper gradeMappingMapper;
     private final RankingService rankingService;
+    private final AiSummaryService summaryService;
 
     public EvaluationController(EvalSceneService sceneService, EvalModelService modelService,
                                 EvalModelStageService stageService, EvalModelIndexService modelIndexService,
@@ -59,7 +61,8 @@ public class EvaluationController {
                                 EvalTaskLogMapper taskLogMapper, EvalObjectLogMapper objectLogMapper,
                                 EvalIndicatorLogMapper indicatorLogMapper,
                                 EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper,
-                                EvalGradeMappingMapper gradeMappingMapper, RankingService rankingService) {
+                                EvalGradeMappingMapper gradeMappingMapper, RankingService rankingService,
+                                AiSummaryService summaryService) {
         this.sceneService = sceneService;
         this.modelService = modelService;
         this.stageService = stageService;
@@ -76,6 +79,7 @@ public class EvaluationController {
         this.eventLogMapper = eventLogMapper;
         this.gradeMappingMapper = gradeMappingMapper;
         this.rankingService = rankingService;
+        this.summaryService = summaryService;
     }
 
     /** 执行单对象评估 — 双通道并行打分。 */
@@ -163,6 +167,24 @@ public class EvaluationController {
     public Result<Map<String, Object>> rank(@PathVariable("sceneCode") String sceneCode) {
         int count = rankingService.rank(sceneCode);
         return Result.ok(Map.of("sceneCode", sceneCode, "ranked", count));
+    }
+
+    /** 生成 AI 总结 — S24 */
+    @PostMapping("/summary/{objectLogId}")
+    public Result<Map<String, Object>> generateSummary(@PathVariable("objectLogId") Long objectLogId) {
+        String summary = summaryService.generateSummary(objectLogId);
+        return Result.ok(Map.of("objectLogId", objectLogId, "summary", summary));
+    }
+
+    /** 查询 AI 总结 */
+    @GetMapping("/summary/{objectLogId}")
+    public Result<Map<String, Object>> getSummary(@PathVariable("objectLogId") Long objectLogId) {
+        var obj = objectLogMapper.selectById(objectLogId);
+        return Result.ok(Map.of(
+                "objectLogId", objectLogId,
+                "summary", obj != null ? obj.getSummary() : null,
+                "summaryStatus", obj != null ? obj.getSummaryStatus() : null
+        ));
     }
 
     private EvaluationContext buildAndExecute(ExecuteEvaluationRequest req) {

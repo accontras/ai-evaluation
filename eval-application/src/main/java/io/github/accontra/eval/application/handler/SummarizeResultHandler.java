@@ -1,6 +1,7 @@
 package io.github.accontra.eval.application.handler;
 
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
+import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
@@ -10,10 +11,13 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * H6 — 汇总结果并落库。
- * S9 最简版: 无等级映射、无 AI 总结、无证据链。
+ * S14: 双通道对比数据写入 indicator_log (llm_score/rule_score/score_diff/diff_level/llm_reason)。
  */
 public class SummarizeResultHandler implements Handler {
 
@@ -71,18 +75,43 @@ public class SummarizeResultHandler implements Handler {
         objectLog.setEnabled(1);
         objectLogMapper.insert(objectLog);
 
-        // 3. 创建指标日志 (暂不写具体分数明细，S12 补)
+        // 3. 创建指标日志 — S14: 含双通道对比数据
         if (ctx.getRawValues() != null) {
+            // 构建 diff 索引: indexCode → IndicatorDiff
+            var diffs = ctx.getIndicatorDiffs();
+            Map<String, DualChannelScoringService.IndicatorDiff> diffMap = null;
+            if (diffs != null) {
+                diffMap = diffs.stream()
+                        .collect(Collectors.toMap(
+                                DualChannelScoringService.IndicatorDiff::indexCode,
+                                Function.identity(),
+                                (a, b) -> a));
+            }
+
             int sn = 0;
             for (var entry : ctx.getRawValues().entrySet()) {
+                String indexCode = entry.getKey();
                 EvalIndicatorLog il = new EvalIndicatorLog();
                 il.setObjectLogId(objectLog.getId());
                 il.setTaskLogId(taskLog.getId());
-                il.setIndexCode(entry.getKey());
+                il.setIndexCode(indexCode);
                 il.setClazz("INDEX");
                 il.setDataValue(entry.getValue() != null ? entry.getValue().toString() : null);
                 il.setSn(++sn);
                 il.setEnabled(1);
+
+                // S14: 双通道对比数据
+                var diff = diffMap != null ? diffMap.get(indexCode) : null;
+                if (diff != null) {
+                    il.setLlmScore(diff.llmScore());
+                    il.setRuleScore(diff.ruleScore());
+                    il.setScoreDiff(diff.diff());
+                    il.setDiffLevel(diff.diffLevel());
+                    il.setLlmReason(diff.llmReason());
+                    il.setScoreMode("LLM"); // 主通道
+                    il.setScore(diff.llmScore()); // 实际采用 LLM 分数
+                }
+
                 indicatorLogMapper.insert(il);
             }
         }

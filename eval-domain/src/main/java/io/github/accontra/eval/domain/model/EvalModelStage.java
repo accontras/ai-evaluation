@@ -18,6 +18,7 @@ public class EvalModelStage {
     private Integer weight;
     private Integer priority;
     private String aggregateMode;
+    private String routeCondition;
     private BigDecimal defaultScore;
     @TableLogic
     private Integer enabled;
@@ -50,6 +51,8 @@ public class EvalModelStage {
     public void setPriority(Integer priority) { this.priority = priority; }
     public String getAggregateMode() { return aggregateMode; }
     public void setAggregateMode(String aggregateMode) { this.aggregateMode = aggregateMode; }
+    public String getRouteCondition() { return routeCondition; }
+    public void setRouteCondition(String v) { routeCondition = v; }
     public BigDecimal getDefaultScore() { return defaultScore; }
     public void setDefaultScore(BigDecimal defaultScore) { this.defaultScore = defaultScore; }
     public Integer getEnabled() { return enabled; }

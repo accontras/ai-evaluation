@@ -2,6 +2,7 @@ package io.github.accontra.eval.common.util;
 
 import org.apache.commons.jexl3.*;
 import org.apache.commons.jexl3.introspection.JexlPermissions;
+import org.apache.commons.jexl3.MapContext;
 
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -61,7 +62,8 @@ public final class ExpressionUtil {
 
         try {
             JexlExpression expr = JEXL.createExpression(resolved);
-            Object result = expr.evaluate(null);
+            JexlContext jexlCtx = variables != null ? new MapContext(variables) : new MapContext();
+            Object result = expr.evaluate(jexlCtx);
             if (result instanceof Number n) {
                 return BigDecimal.valueOf(n.doubleValue());
             }

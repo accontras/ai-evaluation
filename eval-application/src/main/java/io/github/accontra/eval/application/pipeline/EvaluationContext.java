@@ -1,5 +1,7 @@
 package io.github.accontra.eval.application.pipeline;
 
+import io.github.accontra.eval.application.strategy.DualChannelScoringService;
+import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
 import io.github.accontra.eval.domain.model.*;
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,6 +38,10 @@ public class EvaluationContext {
 
     // ===== H3 产出 =====
     private BigDecimal totalScore;
+    private Map<String, LlmScoringStrategy.ScoreResult> llmScores;
+    private Map<String, LlmScoringStrategy.ScoreResult> ruleScores;
+    private List<DualChannelScoringService.IndicatorDiff> indicatorDiffs;
+    private StageNode rootStageNode;
     // TODO: StageResult / IndicatorResult
 
     // ===== H4 产出 =====
@@ -91,6 +97,14 @@ public class EvaluationContext {
 
     public BigDecimal getTotalScore() { return totalScore; }
     public void setTotalScore(BigDecimal v) { totalScore = v; }
+    public Map<String, LlmScoringStrategy.ScoreResult> getLlmScores() { return llmScores; }
+    public void setLlmScores(Map<String, LlmScoringStrategy.ScoreResult> v) { llmScores = v; }
+    public Map<String, LlmScoringStrategy.ScoreResult> getRuleScores() { return ruleScores; }
+    public void setRuleScores(Map<String, LlmScoringStrategy.ScoreResult> v) { ruleScores = v; }
+    public List<DualChannelScoringService.IndicatorDiff> getIndicatorDiffs() { return indicatorDiffs; }
+    public void setIndicatorDiffs(List<DualChannelScoringService.IndicatorDiff> v) { indicatorDiffs = v; }
+    public StageNode getRootStageNode() { return rootStageNode; }
+    public void setRootStageNode(StageNode v) { rootStageNode = v; }
     public boolean isBlocked() { return blocked; }
     public void setBlocked(boolean v) { blocked = v; }
     public BigDecimal getAdjustedTotalScore() { return adjustedTotalScore; }

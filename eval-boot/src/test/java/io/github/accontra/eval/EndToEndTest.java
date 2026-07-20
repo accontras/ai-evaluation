@@ -3,11 +3,12 @@ package io.github.accontra.eval;
 import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
+import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
+import io.github.accontra.eval.application.strategy.RuleScoreStrategy;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
 import io.github.accontra.eval.domain.service.*;
-import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 端到端测试: H1→H2→H3→H6 全链路 + 真实 DeepSeek 打分 + 结果落库
+ * 端到端测试: H1→H2→H3(双通道)→H6 全链路 + 真实 DeepSeek 打分 + 结果落库
  */
 @SpringBootTest
 class EndToEndTest {
@@ -29,7 +30,9 @@ class EndToEndTest {
     @Autowired private EvalModelStageService stageService;
     @Autowired private EvalModelIndexService modelIndexService;
     @Autowired private EvalIndexService indexService;
-    @Autowired private LlmClient llmClient;
+    @Autowired private LlmScoringStrategy llmStrategy;
+    @Autowired private RuleScoreStrategy ruleStrategy;
+    @Autowired private DualChannelScoringService dualChannel;
     @Autowired private EvalTaskLogMapper taskLogMapper;
     @Autowired private EvalObjectLogMapper objectLogMapper;
     @Autowired private EvalIndicatorLogMapper indicatorLogMapper;
@@ -40,8 +43,7 @@ class EndToEndTest {
         var h1 = new ValidateAndLoadModelHandler(sceneService, modelService,
                 stageService, modelIndexService, indexService);
         var h2 = new FetchIndicatorValuesHandler();
-        var llmStrategy = new LlmScoringStrategy(llmClient);
-        var h3 = new LlmCalculateScoresHandler(llmStrategy);
+        var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
         var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper);
 
         var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h6));

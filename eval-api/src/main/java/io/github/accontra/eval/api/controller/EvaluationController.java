@@ -9,6 +9,7 @@ import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.service.AiSummaryService;
 import io.github.accontra.eval.application.service.ModelConfigCache;
+import io.github.accontra.eval.application.service.MultiModelCompareService;
 import io.github.accontra.eval.application.service.RankingService;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
@@ -48,6 +49,7 @@ public class EvaluationController {
     private final EvalGradeMappingMapper gradeMappingMapper;
     private final RankingService rankingService;
     private final ModelConfigCache configCache;
+    private final MultiModelCompareService multiModelService;
     private final AiSummaryService summaryService;
 
     public EvaluationController(EvalIndexService indexService,
@@ -58,7 +60,9 @@ public class EvaluationController {
                                 EvalIndicatorLogMapper indicatorLogMapper,
                                 EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper,
                                 EvalGradeMappingMapper gradeMappingMapper,
-                                ModelConfigCache configCache, RankingService rankingService,
+                                ModelConfigCache configCache,
+                                MultiModelCompareService multiModelService,
+                                RankingService rankingService,
                                 AiSummaryService summaryService) {
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;
@@ -72,6 +76,7 @@ public class EvaluationController {
         this.eventLogMapper = eventLogMapper;
         this.gradeMappingMapper = gradeMappingMapper;
         this.configCache = configCache;
+        this.multiModelService = multiModelService;
         this.rankingService = rankingService;
         this.summaryService = summaryService;
     }
@@ -220,6 +225,18 @@ public class EvaluationController {
                 "gradeDistribution", grades,
                 "indicatorDiffs", diffList,
                 "recentResults", recent
+        ));
+    }
+
+    /** 多模型对比 — S31 */
+    @PostMapping("/compare-models")
+    public Result<Map<String, Object>> compareModels(@RequestBody ExecuteEvaluationRequest req) {
+        var ctx = buildAndExecute(req); // runs full pipeline
+        var result = multiModelService.compare(ctx);
+        return Result.ok(Map.of(
+                "bizId", req.bizId(),
+                "scores", result.modelScores(),
+                "stdDevs", result.stdDevs()
         ));
     }
 

@@ -12,8 +12,6 @@ import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -24,7 +22,6 @@ import java.util.*;
  * v2 增强: 从 eval_model_standard 读取评分区间注入 Prompt，
  * 让 LLM 基于真实配置标准打分，而非凭空揣测。
  */
-@Component
 public class LlmScoringStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(LlmScoringStrategy.class);
@@ -61,11 +58,19 @@ public class LlmScoringStrategy {
     private final EvalModelStandardMapper standardMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
 
+    /** 完整构造 (Spring 注入) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
                                EvalIndicatorLogMapper indicatorLogMapper) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
+    }
+
+    /** 简化构造 (测试用, 无标准注入和 few-shot) */
+    public LlmScoringStrategy(LlmClient llmClient) {
+        this.llmClient = llmClient;
+        this.standardMapper = null;
+        this.indicatorLogMapper = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -138,6 +143,7 @@ public class LlmScoringStrategy {
 
     /** 加载模型级评分标准, 按 indexId 分组 */
     private Map<Long, List<EvalModelStandard>> loadStandards(EvaluationContext ctx) {
+        if (standardMapper == null) return Map.of();
         Long modelId = ctx.getModel() != null ? ctx.getModel().getId() : null;
         if (modelId == null) return Map.of();
 
@@ -185,6 +191,7 @@ public class LlmScoringStrategy {
 
     /** 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */
     private String buildFewShot(EvaluationContext ctx) {
+        if (indicatorLogMapper == null) return "";
         try {
             var qw = new LambdaQueryWrapper<EvalIndicatorLog>()
                     .eq(EvalIndicatorLog::getDiffLevel, "TRIVIAL")

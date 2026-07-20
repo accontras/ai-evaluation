@@ -1,6 +1,10 @@
 package io.github.accontra.eval.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
+import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
+import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -10,11 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Caffeine 本地缓存配置 — S25。
- *
- * 缓存策略:
- *   modelConfig: scene → model → stages → indices (TTL 5min)
- *   gradeMapping: sceneId → grade mappings (TTL 10min)
+ * 应用配置 — Caffeine 缓存 + Strategy Bean。
  */
 @Configuration
 @EnableCaching
@@ -28,5 +28,12 @@ public class CacheConfig {
                 .maximumSize(200)
                 .recordStats());
         return manager;
+    }
+
+    @Bean
+    public LlmScoringStrategy llmScoringStrategy(LlmClient llmClient,
+                                                   EvalModelStandardMapper standardMapper,
+                                                   EvalIndicatorLogMapper indicatorLogMapper) {
+        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper);
     }
 }

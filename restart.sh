@@ -27,7 +27,8 @@ JAR=$(find "$APP_DIR/eval-boot/target" -maxdepth 1 -name "*.jar" -not -name "*so
 
 # 3. Start app in background
 echo "Starting $JAR ..."
-nohup java -jar "$JAR" > "$LOG_DIR/app.log" 2>&1 &
+JAVA17="$HOME/.jdks/temurin-17/bin/java"
+nohup "$JAVA17" -jar "$JAR" > "$LOG_DIR/app.log" 2>&1 &
 APP_PID=$!
 echo "App PID: $APP_PID"
 

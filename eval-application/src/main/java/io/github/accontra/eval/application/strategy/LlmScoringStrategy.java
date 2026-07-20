@@ -5,8 +5,10 @@ import cn.hutool.json.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.domain.model.EvalIndex;
+import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +48,8 @@ public class LlmScoringStrategy {
             }""";
 
     private static final String USER_PROMPT_TMPL = """
-            ## 评估对象
+            {{fewShot}}
+            ## 当前评估对象
             - 对象ID: {{bizId}}
 
             ## 指标数据与评分标准
@@ -56,10 +59,13 @@ public class LlmScoringStrategy {
 
     private final LlmClient llmClient;
     private final EvalModelStandardMapper standardMapper;
+    private final EvalIndicatorLogMapper indicatorLogMapper;
 
-    public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper) {
+    public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
+                               EvalIndicatorLogMapper indicatorLogMapper) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
+        this.indicatorLogMapper = indicatorLogMapper;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -98,7 +104,10 @@ public class LlmScoringStrategy {
                 count++;
             }
 
+            // Few-shot: 加载历史 TRIVIAL 案例作为参考
+            String fewShot = buildFewShot(ctx);
             String userPrompt = USER_PROMPT_TMPL
+                    .replace("{{fewShot}}", fewShot)
                     .replace("{{bizId}}", ctx.getBizId() != null ? ctx.getBizId() : "unknown")
                     .replace("{{indicatorTable}}", table.toString())
                     .replace("{{count}}", String.valueOf(count));
@@ -172,6 +181,36 @@ public class LlmScoringStrategy {
 
     private String stripZero(BigDecimal v) {
         return v.stripTrailingZeros().toPlainString();
+    }
+
+    /** 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */
+    private String buildFewShot(EvaluationContext ctx) {
+        try {
+            var qw = new LambdaQueryWrapper<EvalIndicatorLog>()
+                    .eq(EvalIndicatorLog::getDiffLevel, "TRIVIAL")
+                    .isNotNull(EvalIndicatorLog::getLlmReason)
+                    .orderByDesc(EvalIndicatorLog::getId)
+                    .last("LIMIT 3");
+            var examples = indicatorLogMapper.selectList(qw);
+            if (examples == null || examples.isEmpty()) return "";
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("## 历史参考案例（AI打分与规则引擎一致的高质量案例）\n\n");
+            int n = 0;
+            for (var ex : examples) {
+                n++;
+                sb.append(String.format("案例%d: %s=%.1f分, %s\n",
+                        n,
+                        ex.getIndexCode() != null ? ex.getIndexCode() : "?",
+                        ex.getLlmScore() != null ? ex.getLlmScore() : 0,
+                        ex.getLlmReason() != null ? ex.getLlmReason() : ""));
+            }
+            sb.append("\n");
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("[LLM] Few-shot 加载失败: {}", e.getMessage());
+            return "";
+        }
     }
 
     private Map<String, ScoreResult> degradedScores(EvaluationContext ctx) {

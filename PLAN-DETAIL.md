@@ -24,9 +24,116 @@
 
 ---
 
-## 当前: S19 — 剩余表 DDL+Entity+Mapper
+## 当前: S27 — 测试补充（上）
 
-**开始时间**: 待定 | **预计**: 3 小时 | **状态**: ⬜
+**开始时间**: 2026-07-20 | **状态**: 🔄
+
+### 新增测试
+
+| 测试类 | 用例数 | 覆盖 |
+|--------|--------|------|
+| `EventRuleEvaluatorTest` | 5 | RED_LINE触发/未触发/priority排序/scoreExpression/skip空规则 |
+| `RankingServiceTest` | 1 | 奥运排名积分验证 |
+
+---
+
+## S19-S20, S22, S26: 跳过
+
+| Session | 原因 |
+|---------|------|
+| S19 ⏭️ | 已在 S4 完成全部 25 Entity+Mapper |
+| S20 ⏭️ | 无 MQ 环境, RocketMQ 待定 |
+| S22 ⬜ | 申诉体系未开始 |
+| S26 ⏭️ | 非 MVP 阻塞项, 延后 |
+
+---
+
+## S25: Caffeine 缓存 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `CacheConfig.java` | CaffeineCacheManager, TTL 5min, maxSize=200 |
+| `ModelConfigCache.java` | @Cacheable scene/model/stages/indices, loadFullConfig |
+| `ValidateAndLoadModelHandler` | 缓存路径 + 直连DB兼容路径 |
+| `SceneCopyDomainService` | publish时 evictScene |
+| `restart.sh` | java -jar 替代 mvn spring-boot:run, 6s启动 |
+
+---
+
+## S24: AI 总结 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `AiSummaryService.java` | Round1生成 + Round2自审, DeepSeek 280字 |
+| `EvaluationController` | POST/GET /summary/{id} |
+| `ExecuteEvaluationResponse` | 新增 grade 字段 |
+
+---
+
+## S23: 等级映射 + 奥运排名 + 回调 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `GradeMappingController.java` | CRUD API (list/create/batch/grade) |
+| `RankingService.java` | 奥运排名 (1,1,3,4...) |
+| `CallbackNotifyService.java` | 异步 HTTP POST 回调 |
+| `SummarizeResultHandler` | computeGrade + grade落库 |
+| 种子数据 | S/A/B/C/D 5级等级映射 |
+
+---
+
+## S21: 深拷贝 + 方案配置 API ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `SceneCopyDomainService.java` | 模型→方案 3级深拷贝 (scene/stage/index, parentId重映射) |
+| `SceneController.java` | POST /copy, GET /list, POST /{id}/publish |
+
+---
+
+## S17: H4 事件/红线 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `EventRuleEvaluator.java` | JEXL条件 → RED_LINE/BONUS/DEDUCT/MARK |
+| `LlmEventDetector.java` | LLM异常检测 Prompt |
+| `EventRedLineHandler.java` | 双通道对比 + triggerSource: RULE/LLM/BOTH |
+| `EvalEventLog.triggerSource` | 触发来源字段 |
+
+---
+
+## S16: TOP 路由 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `TreeAggregator` | aggregateTop: JEXL路由匹配, 默认fallback |
+| `EvalModelStage.routeCondition` | 路由条件字段 |
+| `ExpressionUtil` | JexlContext注入变量支持 |
+
+---
+
+## S15: Stage 树聚合 ✅
+
+**完成时间**: 2026-07-20
+
+| 文件 | 说明 |
+|------|------|
+| `StageNode.java` | 树节点模型 |
+| `StageNodeAssembler.java` | parentId递归装配 |
+| `TreeAggregator.java` | 自底向上聚合 + weighted_sum/sum/min |
+| `TreeAggregationTest.java` | 4单测全绿 |
 
 ---
 
@@ -228,5 +335,14 @@ eval-system/
 | 2026-07-20 | S2 ✅ | 25 张表 clean schema (V003) |
 | 2026-07-20 | S3 ✅ | 5 个枚举补完 |
 | 2026-07-20 | S4-S9,S11-S13 ✅ | 批量完成: Entity+Mapper+Pipeline+LLM+Handler+JEXL+规则+双通道 |
-| 2026-07-20 | S10 ✅ | M1 端到端验证: DeepSeek 76.67分, EvaluationController, curl 全链路通了 |
-| 2026-07-20 | S14 ✅ | 双通道对比: DUAL_CHANNEL 并行打分, stats API, 5字段落库 |
+| 2026-07-20 | S10 ✅ | M1 验证: DeepSeek 76.67分, curl全链路通了 |
+| 2026-07-20 | S14 ✅ | 双通道对比: DUAL_CHANNEL, stats API, 5字段落库 |
+| 2026-07-20 | S15 ✅ | Stage树: StageNode+Assembler+TreeAggregator |
+| 2026-07-20 | S16 ✅ | TOP路由: JEXL条件, routeCondition |
+| 2026-07-20 | S17 ✅ | H4事件: EventRuleEvaluator+LlmEventDetector, triggerSource |
+| 2026-07-20 | S18 ✅ | M2验证: 39条对比, SIG=74.4%, v0.2.0 tag |
+| 2026-07-20 | S21 ✅ | 深拷贝: SceneCopyDomainService+SceneController |
+| 2026-07-20 | S23 ✅ | 等级+排名+回调: GradeMapping+奥运排名+CallbackNotify |
+| 2026-07-20 | S24 ✅ | AI总结: AiSummaryService两轮自审, 280字 |
+| 2026-07-20 | S25 ✅ | 缓存: ModelConfigCache+Caffeine, restart.sh |
+| 2026-07-20 | S27 🔄 | 测试: EventRuleEvaluator(5)+RankingService(1) 全绿 |

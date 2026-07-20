@@ -100,7 +100,7 @@ CREATE TABLE eval_model_standard (
     target_type     VARCHAR(10)   DEFAULT 'STAGE',
     target_id       BIGINT,
     code            VARCHAR(50),
-    standard_type   VARCHAR(20)   DEFAULT 'STRUCTURED' COMMENT 'STRUCTURED / EXPRESSION',
+    standard_type   VARCHAR(20)   DEFAULT 'STRUCTURED' COMMENT 'STRUCTURED / EXPRESSION / AI / DEFAULT_FIXED / DEFAULT_EXPR',
     dimension_rule  TEXT          COMMENT 'JEXL 条件表达式',
     min_value       DECIMAL(10,2),
     max_value       DECIMAL(10,2),

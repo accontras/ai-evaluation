@@ -11,6 +11,7 @@ public record ExecuteEvaluationResponse(
         String sceneCode,
         BigDecimal totalScore,
         String riskLevel,
+        String grade,
         String scoringMode,
         List<IndicatorResult> indicators
 ) {

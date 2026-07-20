@@ -7,6 +7,7 @@ import io.github.accontra.eval.application.event.LlmEventDetector;
 import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
+import io.github.accontra.eval.application.service.RankingService;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
 import io.github.accontra.eval.application.strategy.RuleScoreStrategy;
@@ -46,6 +47,8 @@ public class EvaluationController {
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EvalModelEventMapper modelEventMapper;
     private final EvalEventLogMapper eventLogMapper;
+    private final EvalGradeMappingMapper gradeMappingMapper;
+    private final RankingService rankingService;
 
     public EvaluationController(EvalSceneService sceneService, EvalModelService modelService,
                                 EvalModelStageService stageService, EvalModelIndexService modelIndexService,
@@ -55,7 +58,8 @@ public class EvaluationController {
                                 LlmClient llmClient,
                                 EvalTaskLogMapper taskLogMapper, EvalObjectLogMapper objectLogMapper,
                                 EvalIndicatorLogMapper indicatorLogMapper,
-                                EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper) {
+                                EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper,
+                                EvalGradeMappingMapper gradeMappingMapper, RankingService rankingService) {
         this.sceneService = sceneService;
         this.modelService = modelService;
         this.stageService = stageService;
@@ -70,6 +74,8 @@ public class EvaluationController {
         this.indicatorLogMapper = indicatorLogMapper;
         this.modelEventMapper = modelEventMapper;
         this.eventLogMapper = eventLogMapper;
+        this.gradeMappingMapper = gradeMappingMapper;
+        this.rankingService = rankingService;
     }
 
     /** 执行单对象评估 — 双通道并行打分。 */
@@ -112,6 +118,7 @@ public class EvaluationController {
         var resp = new ExecuteEvaluationResponse(
                 ctx.getBizId(), ctx.getSceneCode(),
                 ctx.getTotalScore(), ctx.getRiskLevel(),
+                ctx.getGrade() != null ? ctx.getGrade() : "N/A",
                 scoringMode, indicators);
 
         log.info("评估完成: bizId={}, totalScore={}, riskLevel={}, mode={}",
@@ -151,6 +158,13 @@ public class EvaluationController {
         ));
     }
 
+    /** 奥运排名 — S23 */
+    @PostMapping("/rank/{sceneCode}")
+    public Result<Map<String, Object>> rank(@PathVariable("sceneCode") String sceneCode) {
+        int count = rankingService.rank(sceneCode);
+        return Result.ok(Map.of("sceneCode", sceneCode, "ranked", count));
+    }
+
     private EvaluationContext buildAndExecute(ExecuteEvaluationRequest req) {
         var h1 = new ValidateAndLoadModelHandler(sceneService, modelService,
                 stageService, modelIndexService, indexService);
@@ -158,7 +172,7 @@ public class EvaluationController {
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
         var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,
                 new EventRuleEvaluator(), new LlmEventDetector(llmClient));
-        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper);
+        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper, gradeMappingMapper);
 
         var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h4, h6));
 

@@ -1,7 +1,9 @@
 package io.github.accontra.eval.application.handler;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
+import io.github.accontra.eval.domain.model.EvalGradeMapping;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
@@ -17,7 +19,7 @@ import java.util.stream.Collectors;
 
 /**
  * H6 — 汇总结果并落库。
- * S14: 双通道对比数据写入 indicator_log (llm_score/rule_score/score_diff/diff_level/llm_reason)。
+ * S23: 等级映射 (SCORE_RANGE) + 落库 grade 字段。
  */
 public class SummarizeResultHandler implements Handler {
 
@@ -26,13 +28,16 @@ public class SummarizeResultHandler implements Handler {
     private final EvalTaskLogMapper taskLogMapper;
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
+    private final EvalGradeMappingMapper gradeMappingMapper;
 
     public SummarizeResultHandler(EvalTaskLogMapper taskLogMapper,
                                   EvalObjectLogMapper objectLogMapper,
-                                  EvalIndicatorLogMapper indicatorLogMapper) {
+                                  EvalIndicatorLogMapper indicatorLogMapper,
+                                  EvalGradeMappingMapper gradeMappingMapper) {
         this.taskLogMapper = taskLogMapper;
         this.objectLogMapper = objectLogMapper;
         this.indicatorLogMapper = indicatorLogMapper;
+        this.gradeMappingMapper = gradeMappingMapper;
     }
 
     @Override public String stepCode() { return "SUMMARIZE"; }
@@ -54,6 +59,11 @@ public class SummarizeResultHandler implements Handler {
         }
         ctx.setRiskLevel(riskLevel);
 
+        // S23: 等级映射
+        var scene = ctx.getScene();
+        String grade = computeGrade(scene != null ? scene.getId() : null, totalScore);
+        ctx.setGrade(grade);
+
         // 1. 创建任务日志
         EvalTaskLog taskLog = new EvalTaskLog();
         taskLog.setCode("TASK-" + System.currentTimeMillis());
@@ -71,6 +81,7 @@ public class SummarizeResultHandler implements Handler {
         objectLog.setTargetCode(ctx.getBizId());
         objectLog.setTotalScore(totalScore);
         objectLog.setRiskLevel(riskLevel);
+        objectLog.setGrade(grade);
         objectLog.setStatus("SUCCESS");
         objectLog.setEnabled(1);
         objectLogMapper.insert(objectLog);
@@ -116,7 +127,20 @@ public class SummarizeResultHandler implements Handler {
             }
         }
 
-        log.info("[H6] 落库完成: taskLog={}, objectLog={}, totalScore={}, riskLevel={}",
-                taskLog.getId(), objectLog.getId(), totalScore, riskLevel);
+        log.info("[H6] 落库完成: taskLog={}, objectLog={}, totalScore={}, riskLevel={}, grade={}",
+                taskLog.getId(), objectLog.getId(), totalScore, riskLevel, grade);
+    }
+
+    /** SCORE_RANGE 等级映射 */
+    private String computeGrade(Long sceneId, BigDecimal totalScore) {
+        if (sceneId == null) return "N/A";
+        var qw = new LambdaQueryWrapper<EvalGradeMapping>()
+                .eq(EvalGradeMapping::getSceneId, sceneId)
+                .le(EvalGradeMapping::getLowerBound, totalScore)
+                .gt(EvalGradeMapping::getUpperBound, totalScore)
+                .orderByAsc(EvalGradeMapping::getPriority)
+                .last("LIMIT 1");
+        var gm = gradeMappingMapper.selectOne(qw);
+        return gm != null ? gm.getGrade() : "N/A";
     }
 }

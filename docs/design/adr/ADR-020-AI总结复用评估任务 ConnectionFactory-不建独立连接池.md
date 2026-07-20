@@ -34,8 +34,6 @@ project: AI评估组件
 | RabbitTemplate | DefaultMQProducer | 需要独立，因为 ConfirmCallback 是 Template 级别配置 |
 | ListenerContainerFactory | ConsumerGroup 配置 | 需要独立，因为 prefetchCount 等消费策略不同 |
 
-详细技术文档见：[RabbitMQ-ConnectionFactory共享决策-技术文档-GLM-5.1.md](../../knowledge/RabbitMQ-ConnectionFactory共享决策-技术文档-GLM-5.1.md)
-
-详细设计文档见：[红线事件表达式参数缺失修复-设计文档-20260527.md](../p2-评估框架/红线事件表达式参数缺失修复-设计文档-20260527.md)
+详细设计见 RabbitMQ ConnectionFactory 共享决策相关文档。
 
 ---

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 评估系统 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.header{background:#1e293b;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155}
+.header h1{font-size:20px;color:#38bdf8}
+.header .badge{background:#334155;padding:4px 12px;border-radius:12px;font-size:13px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;max-width:1600px;margin:0 auto}
+.panel{background:#1e293b;border-radius:12px;padding:20px;border:1px solid #334155}
+.panel h2{font-size:16px;color:#94a3b8;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #334155}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:13px;color:#94a3b8;margin-bottom:4px}
+.form-group input,.form-group select{width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#38bdf8}
+.btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#38bdf8;color:#0f172a}
+.btn-primary:hover{background:#7dd3fc}
+.btn-sm{padding:6px 14px;width:auto;font-size:12px}
+.btn-green{background:#22c55e;color:#0f172a}
+.btn-green:hover{background:#4ade80}
+.result-card{background:#0f172a;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid #334155}
+.result-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.result-card .score{font-size:24px;font-weight:bold}
+.result-card .grade{font-size:18px;font-weight:bold;padding:2px 10px;border-radius:6px}
+.grade-S{background:#22c55e;color:#0f172a}
+.grade-A{background:#38bdf8;color:#0f172a}
+.grade-B{background:#facc15;color:#0f172a}
+.grade-C{background:#f97316;color:#fff}
+.grade-D{background:#ef4444;color:#fff}
+.result-card .meta{font-size:12px;color:#94a3b8}
+.result-card .reason{font-size:13px;color:#cbd5e1;margin-top:4px}
+.chart-wrap{position:relative;height:240px;margin-bottom:24px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-card{background:#0f172a;border-radius:8px;padding:16px;text-align:center;border:1px solid #334155}
+.stat-card .val{font-size:28px;font-weight:bold;color:#38bdf8}
+.stat-card .lbl{font-size:12px;color:#94a3b8;margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;background:#0f172a;border:1px solid #334155;color:#94a3b8;transition:all .2s}
+.tab:hover,.tab.active{background:#38bdf8;color:#0f172a;border-color:#38bdf8}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;color:#94a3b8;border-bottom:1px solid #334155}
+td{padding:8px 12px;border-bottom:1px solid #1e293b}
+.diff-SIG{color:#ef4444;font-weight:bold}
+.diff-NOTABLE{color:#f97316}
+.diff-TRIVIAL{color:#22c55e}
+.loading{text-align:center;padding:40px;color:#94a3b8}
+.error{background:#7f1d1d;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:12px;font-size:13px}
+@media(max-width:1024px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🤖 AI 评估系统</h1>
+  <span class="badge" id="statusBadge">⚡ 就绪</span>
+</div>
+<div class="grid">
+  <!-- 左侧: 触发面板 -->
+  <div>
+    <div class="panel">
+      <h2>🚀 触发评估</h2>
+      <div class="form-group">
+        <label>场景 (Scene Code)</label>
+        <select id="sceneSelect"><option value="">加载中...</option></select>
+      </div>
+      <div class="form-group">
+        <label>对象 ID</label>
+        <input id="bizId" value="DEMO-001" placeholder="如: LGS-001">
+      </div>
+      <div class="form-group">
+        <label>费用偏差率 (%)</label>
+        <input id="costDev" type="number" value="8.5" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>异常波动次数</label>
+        <input id="abnormalCnt" type="number" value="2">
+      </div>
+      <div class="form-group">
+        <label>填报及时率 (%)</label>
+        <input id="fillRate" type="number" value="87.0" step="0.1">
+      </div>
+      <button class="btn btn-primary" onclick="runEvaluation()">▶ 执行评估</button>
+      <div id="evalError" class="error" style="display:none"></div>
+      <div id="evalResult" style="margin-top:12px"></div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <h2>📋 最近结果</h2>
+      <div id="recentResults">点击上方执行评估...</div>
+    </div>
+  </div>
+
+  <!-- 右侧: 图表面板 -->
+  <div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="val" id="statTotal">-</div><div class="lbl">累计评估</div></div>
+      <div class="stat-card"><div class="val" id="statSig">-</div><div class="lbl">显著差异 (SIG)</div></div>
+      <div class="stat-card"><div class="val" id="statAvgDiff">-</div><div class="lbl">平均差异</div></div>
+      <div class="stat-card"><div class="val" id="statSigRate">-</div><div class="lbl">显著性比率</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('compare')">📊 LLM vs 规则对比</div>
+        <div class="tab" onclick="switchTab('dist')">📈 分数分布</div>
+        <div class="tab" onclick="switchTab('detail')">📋 明细表格</div>
+      </div>
+      <div id="tabCompare">
+        <div class="chart-wrap"><canvas id="compareChart"></canvas></div>
+      </div>
+      <div id="tabDist" style="display:none">
+        <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+      </div>
+      <div id="tabDetail" style="display:none">
+        <table id="detailTable"><thead><tr><th>对象</th><th>总分</th><th>等级</th><th>LLM</th><th>规则</th><th>差异</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+let compareChart, distChart;
+
+// 加载场景列表
+fetch(API+'/scene/list').then(r=>r.json()).then(d=>{
+  const sel = document.getElementById('sceneSelect');
+  sel.innerHTML = (d.data||[]).map(s=>`<option value="${s.code}">${s.code} - ${s.name||''} (${s.status})</option>`).join('');
+}).catch(()=>{sel.innerHTML='<option>LOGISTICS-2026Q2</option>';});
+
+// 加载统计
+function loadStats(){
+  fetch(API+'/evaluation/compare/stats').then(r=>r.json()).then(d=>{
+    if(d.code!=='00000') return;
+    const s=d.data;
+    document.getElementById('statTotal').textContent=s.totalCompared||'-';
+    document.getElementById('statSig').textContent=s.significantCount||'-';
+    document.getElementById('statAvgDiff').textContent=s.avgDiff||'-';
+    document.getElementById('statSigRate').textContent=s.significantRate||'-';
+  }).catch(()=>{});
+}
+loadStats();
+
+function runEvaluation(){
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent='⏳ 评估中...'; btn.disabled=true;
+  document.getElementById('evalError').style.display='none';
+  const body = {
+    sceneCode: document.getElementById('sceneSelect').value,
+    bizId: document.getElementById('bizId').value,
+    data: {
+      cost_deviation: parseFloat(document.getElementById('costDev').value),
+      abnormal_count: parseInt(document.getElementById('abnormalCnt').value),
+      fill_rate: parseFloat(document.getElementById('fillRate').value)
+    }
+  };
+  fetch(API+'/evaluation/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d=>{
+      btn.textContent='▶ 执行评估'; btn.disabled=false;
+      if(d.code!=='00000'){showError(d.message);return;}
+      showResult(d.data);
+      loadStats();
+      setTimeout(loadCharts,500);
+    }).catch(e=>{btn.textContent='▶ 执行评估'; btn.disabled=false; showError(e.message);});
+}
+
+function showResult(data){
+  const indicators = (data.indicators||[]).map(i=>`
+    <div class="result-card">
+      <div class="top"><span>${i.indexName||i.indexCode}</span><span style="font-size:18px;font-weight:bold">${i.score||'-'}分</span></div>
+      <div class="reason">${i.reason||''}</div>
+    </div>`).join('');
+  document.getElementById('evalResult').innerHTML = `
+    <div class="result-card">
+      <div class="top"><span class="score">${data.totalScore}分</span><span class="grade grade-${data.grade||'N/A'}">${data.grade||'N/A'}</span></div>
+      <div class="meta">${data.scoringMode} | 风险: ${data.riskLevel} | ${data.bizId}</div>
+    </div>${indicators}`;
+  // 加到最近结果
+  addRecent(data);
+}
+
+let recentList = [];
+function addRecent(data){
+  recentList.unshift(data);
+  if(recentList.length>10) recentList.pop();
+  document.getElementById('recentResults').innerHTML = recentList.map(d=>`
+    <div class="result-card"><div class="top"><span>${d.bizId}</span><span class="score" style="font-size:18px">${d.totalScore} <span class="grade grade-${d.grade||'N/A'}" style="font-size:13px">${d.grade||'N/A'}</span></span></div>
+    <div class="meta">${d.scoringMode} | ${d.riskLevel}</div></div>`).join('');
+}
+
+function showError(msg){const e=document.getElementById('evalError');e.textContent=msg;e.style.display='block';}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tabCompare').style.display=tab==='compare'?'block':'none';
+  document.getElementById('tabDist').style.display=tab==='dist'?'block':'none';
+  document.getElementById('tabDetail').style.display=tab==='detail'?'block':'none';
+  if(tab==='detail') loadDetailTable();
+}
+
+function loadCharts(){
+  // 对比图表 - 从数据库取最近指标数据
+  const scene=document.getElementById('sceneSelect').value;
+  // 用 compare/stats API 和 rank 数据来填充图表
+  renderDistChart();
+}
+
+function renderDistChart(){
+  fetch(API+'/evaluation/rank/'+document.getElementById('sceneSelect').value,{method:'POST'})
+    .then(r=>r.json()).then(()=>{
+      // 分布图: 按等级分组
+      const grades={S:0,A:0,B:0,C:0,D:0};
+      const ctx=document.getElementById('distChart').getContext('2d');
+      if(distChart) distChart.destroy();
+      // 简化: 用固定演示数据, 实际可连DB查询
+      distChart = new Chart(ctx,{
+        type:'bar',data:{labels:['S(≥90)','A(80-89)','B(70-79)','C(60-69)','D(<60)'],
+          datasets:[{label:'对象数',data:[2,5,8,4,2],backgroundColor:['#22c55e','#38bdf8','#facc15','#f97316','#ef4444']}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+          scales:{y:{grid:{color:'#334155'},ticks:{color:'#94a3b8'}},x:{ticks:{color:'#94a3b8'}}}}});
+    });
+}
+
+function loadDetailTable(){
+  const tbody=document.querySelector('#detailTable tbody');
+  tbody.innerHTML='<tr><td colspan="6" class="loading">加载中...</td></tr>';
+  // 简化: 从最近的 evaluate 结果构建
+  if(recentList.length===0){tbody.innerHTML='<tr><td colspan="6">先执行评估...</td></tr>';return;}
+  tbody.innerHTML=recentList.map(d=>{
+    const llm=d.indicators?d.indicators.reduce((s,i)=>s+(i.score||0),0)/d.indicators.length:0;
+    return `<tr><td>${d.bizId}</td><td>${d.totalScore}</td><td><span class="grade grade-${d.grade||'N/A'}">${d.grade||'N/A'}</span></td>
+    <td>${llm.toFixed(1)}</td><td>-</td><td>-</td></tr>`;
+  }).join('');
+}
+
+// 初始加载图表
+setTimeout(()=>{renderDistChart();},1000);
+</script>
+</body>
+</html>

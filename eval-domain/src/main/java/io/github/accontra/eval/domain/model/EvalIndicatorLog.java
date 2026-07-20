@@ -32,6 +32,16 @@ public class EvalIndicatorLog {
 
     private BigDecimal score;
 
+    private BigDecimal llmScore;
+
+    private BigDecimal ruleScore;
+
+    private BigDecimal scoreDiff;
+
+    private String diffLevel;
+
+    private String llmReason;
+
     private BigDecimal standardScore;
 
     private BigDecimal stageScore;
@@ -154,6 +164,17 @@ public class EvalIndicatorLog {
     public void setScore(BigDecimal score) {
         this.score = score;
     }
+
+    public BigDecimal getLlmScore() { return llmScore; }
+    public void setLlmScore(BigDecimal v) { llmScore = v; }
+    public BigDecimal getRuleScore() { return ruleScore; }
+    public void setRuleScore(BigDecimal v) { ruleScore = v; }
+    public BigDecimal getScoreDiff() { return scoreDiff; }
+    public void setScoreDiff(BigDecimal v) { scoreDiff = v; }
+    public String getDiffLevel() { return diffLevel; }
+    public void setDiffLevel(String v) { diffLevel = v; }
+    public String getLlmReason() { return llmReason; }
+    public void setLlmReason(String v) { llmReason = v; }
 
     public BigDecimal getStandardScore() {
         return standardScore;

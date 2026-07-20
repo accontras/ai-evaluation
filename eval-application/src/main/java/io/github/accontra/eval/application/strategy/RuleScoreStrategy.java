@@ -6,6 +6,7 @@ import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,6 +19,7 @@ import java.util.*;
  * standard_type: STRUCTURED / EXPRESSION → priority 排序
  * score_mode: INTERVAL_WEIGHT / RAW_WEIGHT / FIXED / FIXED_WEIGHT
  */
+@Component
 public class RuleScoreStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(RuleScoreStrategy.class);

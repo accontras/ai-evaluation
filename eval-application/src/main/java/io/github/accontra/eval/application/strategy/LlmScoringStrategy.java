@@ -8,6 +8,7 @@ import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.llm.PromptTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,6 +24,7 @@ import java.util.Map;
  *   3. LLM 返回 JSON: { scores: [{ indexCode, score, reason }] }
  *   4. 失败时降级为默认 70 分 (DEGRADED)
  */
+@Component
 public class LlmScoringStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(LlmScoringStrategy.class);

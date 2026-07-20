@@ -48,7 +48,7 @@ management:
 
 llm:
   provider: deepseek
-  api-key: ${LLM_API_KEY}
+  api-key: ${LLM_API_KEY:sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
   base-url: https://api.deepseek.com
   model: deepseek-chat
 

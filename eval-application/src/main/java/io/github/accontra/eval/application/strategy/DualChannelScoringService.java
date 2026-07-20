@@ -3,6 +3,7 @@ package io.github.accontra.eval.application.strategy;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -15,6 +16,7 @@ import java.util.*;
  *   NOTABLE (5-15%): 值得关注, AI 可能看到规则看不到的东西
  *   SIGNIFICANT (> 15%): 需要人工仲裁
  */
+@Component
 public class DualChannelScoringService {
 
     private static final Logger log = LoggerFactory.getLogger(DualChannelScoringService.class);

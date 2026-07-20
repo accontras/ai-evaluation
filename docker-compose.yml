@@ -1,0 +1,33 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: 2396308dqf
+      MYSQL_DATABASE: eval_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docs/sql/V003__clean_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./docs/sql/V004__seed_data.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./docs/sql/V005__dual_channel_fields.sql:/docker-entrypoint-initdb.d/03-dual-channel.sql
+      - ./docs/sql/V006__route_condition.sql:/docker-entrypoint-initdb.d/04-route.sql
+      - ./docs/sql/V007__event_trigger_source.sql:/docker-entrypoint-initdb.d/05-event.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 2396308dqf
+      LLM_API_KEY: ${LLM_API_KEY:-sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
+    depends_on:
+      mysql:
+        condition: service_healthy

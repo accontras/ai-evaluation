@@ -76,40 +76,44 @@ public class FetchIndicatorValuesHandler implements Handler {
             }
 
             // 指标原始值: dimCodes[0] 主属性 → fieldCode → fields
+            // 若无 dimDefinitions, 直接用 dimCode 作为 fieldCode
             String mainDimCode = dimCodes[0];
-            EvalDimension mainDimDef = getDimDef(dimDefinitions, mainDimCode);
-            if (mainDimDef == null || mainDimDef.getFieldCode() == null) {
-                log.warn("[H2] 主属性维度未注册, bizId={}, indexCode={}, dimCode={}",
-                        ctx.getBizId(), indexCode, mainDimCode);
-                failedCount++;
-                continue;
+            String fieldCode;
+            if (dimDefinitions != null && dimDefinitions.containsKey(mainDimCode)
+                    && dimDefinitions.get(mainDimCode).getFieldCode() != null) {
+                fieldCode = dimDefinitions.get(mainDimCode).getFieldCode();
+            } else {
+                fieldCode = mainDimCode; // 降级: 维度编码即字段名
             }
 
-            Object value = fields.get(mainDimDef.getFieldCode());
+            Object value = resolveFieldValue(fields, fieldCode);
             rawValues.put(indexCode, value);
             if (value != null) successCount++;
             else failedCount++;
 
             // 属性值: dimCodes 全部维度 → fieldCode → fields
             for (String dimCode : dimCodes) {
-                EvalDimension dimDef = getDimDef(dimDefinitions, dimCode);
-                if (dimDef == null) {
-                    log.warn("[H2] 维度未注册, bizId={}, dimCode={}", ctx.getBizId(), dimCode);
-                    continue;
-                }
-                if (dimDef.getFieldCode() == null || dimDef.getFieldCode().isBlank()) {
-                    continue;
+                String attrFieldCode;
+                String dimName;
+                if (dimDefinitions != null && dimDefinitions.containsKey(dimCode)) {
+                    var dimDef = dimDefinitions.get(dimCode);
+                    attrFieldCode = dimDef.getFieldCode() != null ? dimDef.getFieldCode() : dimCode;
+                    dimName = dimDef.getName() != null ? dimDef.getName() : dimCode;
+                } else {
+                    attrFieldCode = dimCode; // 降级
+                    dimName = dimCode;
                 }
 
-                Object attrValue = fields.get(dimDef.getFieldCode());
-                String dimName = dimDef.getName() != null ? dimDef.getName() : dimCode;
+                Object attrValue = resolveFieldValue(fields, attrFieldCode);
 
                 if (attrValues.containsKey(dimName)
                         && !Objects.equals(attrValues.get(dimName), attrValue)) {
                     log.warn("[H2] 维度值覆盖, bizId={}, dimName={}, old={}, new={}",
                             ctx.getBizId(), dimName, attrValues.get(dimName), attrValue);
                 }
-                attrValues.put(dimName, attrValue);
+                if (attrValue != null) {
+                    attrValues.put(dimName, attrValue);
+                }
             }
         }
 
@@ -132,6 +136,19 @@ public class FetchIndicatorValuesHandler implements Handler {
     }
 
     // ---- helper methods ----
+
+    /** 模糊取值: 精确匹配 → 下划线转驼峰 → 忽略大小写 */
+    private Object resolveFieldValue(Map<String, Object> fields, String fieldCode) {
+        if (fields.containsKey(fieldCode)) return fields.get(fieldCode);
+        // 尝试全小写
+        var lower = fieldCode.toLowerCase();
+        if (fields.containsKey(lower)) return fields.get(lower);
+        // 尝试忽略大小写遍历
+        for (var entry : fields.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(fieldCode)) return entry.getValue();
+        }
+        return null;
+    }
 
     private String[] parseDimCodes(String dimensionsStr) {
         try {

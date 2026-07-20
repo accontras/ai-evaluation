@@ -2,6 +2,8 @@ package io.github.accontra.eval.api.controller;
 
 import io.github.accontra.eval.api.request.ExecuteEvaluationRequest;
 import io.github.accontra.eval.api.response.ExecuteEvaluationResponse;
+import io.github.accontra.eval.application.event.EventRuleEvaluator;
+import io.github.accontra.eval.application.event.LlmEventDetector;
 import io.github.accontra.eval.application.handler.*;
 import io.github.accontra.eval.application.pipeline.ConfigurablePipeline;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
@@ -11,9 +13,8 @@ import io.github.accontra.eval.application.strategy.RuleScoreStrategy;
 import io.github.accontra.eval.common.Result;
 import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.service.*;
-import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
-import io.github.accontra.eval.infrastructure.mapper.EvalObjectLogMapper;
-import io.github.accontra.eval.infrastructure.mapper.EvalTaskLogMapper;
+import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.mapper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
@@ -39,17 +40,22 @@ public class EvaluationController {
     private final LlmScoringStrategy llmStrategy;
     private final RuleScoreStrategy ruleStrategy;
     private final DualChannelScoringService dualChannel;
+    private final LlmClient llmClient;
     private final EvalTaskLogMapper taskLogMapper;
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
+    private final EvalModelEventMapper modelEventMapper;
+    private final EvalEventLogMapper eventLogMapper;
 
     public EvaluationController(EvalSceneService sceneService, EvalModelService modelService,
                                 EvalModelStageService stageService, EvalModelIndexService modelIndexService,
                                 EvalIndexService indexService,
                                 LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
                                 DualChannelScoringService dualChannel,
+                                LlmClient llmClient,
                                 EvalTaskLogMapper taskLogMapper, EvalObjectLogMapper objectLogMapper,
-                                EvalIndicatorLogMapper indicatorLogMapper) {
+                                EvalIndicatorLogMapper indicatorLogMapper,
+                                EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper) {
         this.sceneService = sceneService;
         this.modelService = modelService;
         this.stageService = stageService;
@@ -58,9 +64,12 @@ public class EvaluationController {
         this.llmStrategy = llmStrategy;
         this.ruleStrategy = ruleStrategy;
         this.dualChannel = dualChannel;
+        this.llmClient = llmClient;
         this.taskLogMapper = taskLogMapper;
         this.objectLogMapper = objectLogMapper;
         this.indicatorLogMapper = indicatorLogMapper;
+        this.modelEventMapper = modelEventMapper;
+        this.eventLogMapper = eventLogMapper;
     }
 
     /** 执行单对象评估 — 双通道并行打分。 */
@@ -147,9 +156,11 @@ public class EvaluationController {
                 stageService, modelIndexService, indexService);
         var h2 = new FetchIndicatorValuesHandler();
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
+        var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,
+                new EventRuleEvaluator(), new LlmEventDetector(llmClient));
         var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper);
 
-        var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h6));
+        var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h4, h6));
 
         var ctx = new EvaluationContext();
         ctx.setSceneCode(req.sceneCode());

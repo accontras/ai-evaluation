@@ -85,15 +85,18 @@ public record LlmResponse(
 }
 ```
 
-### 3.3 采集点
+### 3.3 采集点与触发方式
 
-| 采集点 | 触发时机 | experiment_type |
-|--------|---------|----------------|
-| LlmScoringStrategy.scoreAll() | 每次 LLM 打分 | SCORING |
-| LlmEventDetector.detect() | 每次 LLM 异常检测 | (待接入) |
-| AiSummaryService.generateSummary() | 每次 AI 总结 | (待接入) |
+**记录是自动的——每次 LLM 调用自动落库，业务代码不需要显式调用记录方法。**
 
-当前接入：SCORING。EVENT 和 SUMMARY 的 recordExperiment 待补充。
+| 采集点 | 触发时机 | experiment_type | 接入状态 |
+|--------|---------|----------------|---------|
+| LlmScoringStrategy | 每次 LLM 打分 (H3) | SCORING | ✅ 已接入 |
+| LlmEventDetector | 每次 LLM 异常检测 (H4) | EVENT | ⬜ 待接入 |
+| AiSummaryService | 每次 AI 总结 (H6) | SUMMARY | ⬜ 待接入 |
+
+调用链: `LlmClient.chat()` 返回 `LlmResponse` → `LlmScoringStrategy.recordExperiment()` 自动写入 DB。
+读取链: `GET /experiments/stats` / `GET /prompts/stats` 按需查询。**记录自动，查询按需。**
 
 ---
 
@@ -127,7 +130,7 @@ public record LlmResponse(
 
 ---
 
-## 五、当前状态与待完善
+## 七、当前状态与待完善
 
 ### 已实现
 
@@ -146,6 +149,77 @@ public record LlmResponse(
 - [ ] 异常检测: 单次 token 消耗 > 均值 3σ → 标记
 - [ ] 成本估算: tokens × 单价 → 累计费用
 - [ ] Dashboard 展示实验统计面板 (当前只有 API)
+
+---
+
+## 六、关键设计决策
+
+## 五、API 响应结构
+
+### 5.1 LlmResponse (LlmClient → 业务层)
+
+每次 LLM 调用返回的原始结构：
+
+```json
+{
+  "content": "{\"scores\":[{\"indexCode\":\"COST_DEV\",\"score\":70,\"reason\":\"...\"}]}",
+  "inputTokens": 280,
+  "outputTokens": 85,
+  "durationMs": 1484,
+  "errorType": null,
+  "totalTokens": 365,
+  "isError": false
+}
+```
+
+### 5.2 GET /experiments/stats
+
+```json
+{
+  "code": "00000",
+  "message": "成功",
+  "data": {
+    "totalCalls": 72,
+    "totalTokens": 48213,
+    "avgDurationMs": 1953,
+    "errorCount": 0,
+    "errorRate": "0.0%"
+  }
+}
+```
+
+### 5.3 GET /prompts/stats
+
+```json
+{
+  "code": "00000",
+  "data": {
+    "v3-fewshot":   { "calls": 45, "avgDurationMs": 2340, "totalTokens": 30600, "errorRate": "0.0%" },
+    "v2-standards": { "calls": 15, "avgDurationMs": 2180, "totalTokens": 9750,  "errorRate": "0.0%" },
+    "v1-base":      { "calls": 12, "avgDurationMs": 2500, "totalTokens": 7863,  "errorRate": "0.0%" }
+  }
+}
+```
+
+### 5.4 eval_ai_experiment 表记录示例
+
+```json
+{
+  "id": 1,
+  "experimentType": "SCORING",
+  "model": "deepseek-chat",
+  "promptVersion": "v3-fewshot",
+  "sceneCode": "LOGISTICS-2026Q2",
+  "bizId": "EXP-001",
+  "inputTokens": 280,
+  "outputTokens": 85,
+  "durationMs": 1484,
+  "llmScore": 70.00,
+  "temperature": 0.30,
+  "errorType": null,
+  "createdAt": "2026-07-21T10:44:38"
+}
+```
 
 ---
 

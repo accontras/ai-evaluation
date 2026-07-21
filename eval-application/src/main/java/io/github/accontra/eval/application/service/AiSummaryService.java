@@ -81,13 +81,17 @@ public class AiSummaryService {
             // Round 1: 生成
             String userPrompt1 = "## 评估结果数据\n\n" + context + "\n\n请生成评估总结。";
             log.info("[AI-Summary] Round1: objectLogId={}", objectLogId);
-            JSONObject r1 = llmClient.chatForJson(ROUND1_SYSTEM, userPrompt1);
+            var resp1 = llmClient.chatForJson(ROUND1_SYSTEM, userPrompt1);
+            var r1 = resp1.json();
+            if (r1 == null) return fallbackSummary(obj);
 
             // Round 2: 自审
             String draft = r1.toString();
             String userPrompt2 = "## 评估总结草稿\n\n" + draft + "\n\n## 原始数据\n\n" + context + "\n\n请审阅并修改。";
             log.info("[AI-Summary] Round2: objectLogId={}", objectLogId);
-            JSONObject r2 = llmClient.chatForJson(ROUND2_SYSTEM, userPrompt2);
+            var resp2 = llmClient.chatForJson(ROUND2_SYSTEM, userPrompt2);
+            var r2 = resp2.json();
+            if (r2 == null) return fallbackSummary(obj);
 
             // 组装最终总结
             String summary = String.format(

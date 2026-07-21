@@ -51,6 +51,7 @@ public class EvaluationController {
     private final ModelConfigCache configCache;
     private final MultiModelCompareService multiModelService;
     private final AiSummaryService summaryService;
+    private final EvalAiExperimentMapper experimentMapper;
 
     public EvaluationController(EvalIndexService indexService,
                                 LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
@@ -63,7 +64,8 @@ public class EvaluationController {
                                 ModelConfigCache configCache,
                                 MultiModelCompareService multiModelService,
                                 RankingService rankingService,
-                                AiSummaryService summaryService) {
+                                AiSummaryService summaryService,
+                                EvalAiExperimentMapper experimentMapper) {
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;
         this.ruleStrategy = ruleStrategy;
@@ -79,6 +81,7 @@ public class EvaluationController {
         this.multiModelService = multiModelService;
         this.rankingService = rankingService;
         this.summaryService = summaryService;
+        this.experimentMapper = experimentMapper;
     }
 
     /** 执行单对象评估 — 双通道并行打分。 */
@@ -237,6 +240,28 @@ public class EvaluationController {
                 "bizId", req.bizId(),
                 "scores", result.modelScores(),
                 "stdDevs", result.stdDevs()
+        ));
+    }
+
+    /** AI 实验统计 — A2 */
+    @GetMapping("/experiments/stats")
+    public Result<Map<String, Object>> experimentStats() {
+        var all = experimentMapper.selectList(null);
+        if (all == null || all.isEmpty()) return Result.ok(Map.of("message", "暂无实验数据"));
+        long total = all.size();
+        double avgDuration = all.stream().filter(e -> e.getDurationMs() != null)
+                .mapToLong(io.github.accontra.eval.domain.model.EvalAiExperiment::getDurationMs)
+                .average().orElse(0);
+        long totalTokens = all.stream().filter(e -> e.getInputTokens() != null)
+                .mapToLong(e -> e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0))
+                .sum();
+        long errors = all.stream().filter(e -> e.getErrorType() != null).count();
+        return Result.ok(Map.of(
+                "totalCalls", total,
+                "avgDurationMs", Math.round(avgDuration),
+                "totalTokens", totalTokens,
+                "errorCount", errors,
+                "errorRate", total > 0 ? String.format("%.1f%%", 100.0 * errors / total) : "0%"
         ));
     }
 

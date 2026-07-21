@@ -40,9 +40,10 @@ public class LlmClient {
     }
 
     /**
-     * 发送聊天请求，返回文本回复。
+     * 发送聊天请求，返回文本 + 可观测性数据。
      */
-    public String chat(String systemPrompt, String userPrompt) {
+    public LlmResponse chat(String systemPrompt, String userPrompt) {
+        long start = System.currentTimeMillis();
         try {
             JSONObject body = new JSONObject();
             body.set("model", model);
@@ -63,9 +64,11 @@ public class LlmClient {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            long duration = System.currentTimeMillis() - start;
+
             if (response.statusCode() != 200) {
                 log.error("LLM call failed: status={}, body={}", response.statusCode(), response.body());
-                throw new RuntimeException("LLM call failed: HTTP " + response.statusCode());
+                return new LlmResponse(null, 0, 0, duration, "HTTP_" + response.statusCode());
             }
 
             JSONObject json = JSONUtil.parseObj(response.body());
@@ -73,21 +76,32 @@ public class LlmClient {
                     .getJSONObject(0)
                     .getJSONObject("message")
                     .getStr("content");
-            log.debug("LLM response: {} chars", content.length());
-            return content;
+
+            JSONObject usage = json.getJSONObject("usage");
+            int inputTokens = usage != null ? usage.getInt("prompt_tokens", 0) : 0;
+            int outputTokens = usage != null ? usage.getInt("completion_tokens", 0) : 0;
+
+            log.debug("LLM response: {} chars, {}ms, {} tokens (in:{}, out:{})",
+                    content.length(), duration, inputTokens + outputTokens, inputTokens, outputTokens);
+            return new LlmResponse(content, inputTokens, outputTokens, duration, null);
 
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("LLM call failed", e);
+            long duration = System.currentTimeMillis() - start;
+            return new LlmResponse(null, 0, 0, duration, e.getClass().getSimpleName());
         }
     }
 
     /**
-     * 发送聊天请求，返回结构化 JSON（用于 LLM-as-Judge 打分场景）。
+     * 发送聊天请求，返回结构化 JSON + 可观测性数据。
      */
-    public JSONObject chatForJson(String systemPrompt, String userPrompt) {
-        String raw = chat(systemPrompt, userPrompt);
+    public LlmJsonResponse chatForJson(String systemPrompt, String userPrompt) {
+        var resp = chat(systemPrompt, userPrompt);
+        if (resp.content == null) {
+            return new LlmJsonResponse(null, resp);
+        }
+        String raw = resp.content;
         // 提取 JSON 块（LLM 可能用 ```json 包裹）
         String jsonStr = raw;
         if (raw.contains("```json")) {
@@ -96,12 +110,23 @@ public class LlmClient {
             jsonStr = raw.substring(raw.indexOf("```") + 3, raw.lastIndexOf("```"));
         }
         try {
-            return JSONUtil.parseObj(jsonStr.trim());
+            return new LlmJsonResponse(JSONUtil.parseObj(jsonStr.trim()), resp);
         } catch (Exception e) {
             log.warn("Failed to parse LLM JSON response, raw: {}", raw);
-            throw new RuntimeException("LLM did not return valid JSON", e);
+            return new LlmJsonResponse(null, resp);
         }
     }
 
     public String getModel() { return model; }
+    public double getTemperature() { return temperature; }
+
+    /** LLM 调用响应 + 可观测性数据 */
+    public record LlmResponse(String content, int inputTokens, int outputTokens,
+                               long durationMs, String errorType) {
+        public boolean isError() { return errorType != null; }
+        public int totalTokens() { return inputTokens + outputTokens; }
+    }
+
+    /** JSON 响应 + 可观测性数据 */
+    public record LlmJsonResponse(JSONObject json, LlmResponse metrics) {}
 }

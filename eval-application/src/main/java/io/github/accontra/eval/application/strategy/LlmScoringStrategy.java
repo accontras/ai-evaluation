@@ -120,9 +120,9 @@ public class LlmScoringStrategy {
                 count++;
             }
 
-            // A1.2: 从 DB 加载 Prompt (替代硬编码)
-            String systemPrompt = loadPrompt("SCORING_SYSTEM");
-            String userTemplate = loadPrompt("SCORING_USER");
+            // A1.2: 从 DB 加载 Prompt (一个版本 = system + user)
+            String systemPrompt = loadPrompt(true);
+            String userTemplate = loadPrompt(false);
             if (userTemplate.isEmpty()) userTemplate = USER_PROMPT_TMPL;
 
             // Few-shot: 加载历史 TRIVIAL 案例作为参考
@@ -165,11 +165,12 @@ public class LlmScoringStrategy {
         }
     }
 
-    /** A1.2: 从 DB 加载 Prompt (回退到硬编码) */
-    private String loadPrompt(String key) {
-        if (promptService == null) return key.equals("SCORING_SYSTEM") ? SYSTEM_PROMPT : USER_PROMPT_TMPL;
-        var tpl = promptService.getActive(key);
-        return tpl != null ? tpl.getTemplateText() : (key.equals("SCORING_SYSTEM") ? SYSTEM_PROMPT : USER_PROMPT_TMPL);
+    /** A1.2: 从 DB 加载 Prompt (一个版本 = system + user) */
+    private String loadPrompt(boolean isSystem) {
+        if (promptService == null) return isSystem ? SYSTEM_PROMPT : USER_PROMPT_TMPL;
+        var tpl = promptService.getActive();
+        if (tpl != null) return isSystem ? tpl.getSystemText() : tpl.getUserText();
+        return isSystem ? SYSTEM_PROMPT : USER_PROMPT_TMPL;
     }
 
     /** 加载模型级评分标准, 按 indexId 分组 */

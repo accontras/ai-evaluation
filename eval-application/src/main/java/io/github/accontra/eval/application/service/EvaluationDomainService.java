@@ -1,6 +1,5 @@
 package io.github.accontra.eval.application.service;
 
-import io.github.accontra.eval.api.request.ExecuteEvaluationRequest;
 import io.github.accontra.eval.application.event.EventRuleEvaluator;
 import io.github.accontra.eval.application.event.LlmEventDetector;
 import io.github.accontra.eval.application.handler.*;
@@ -78,12 +77,13 @@ public class EvaluationDomainService {
     }
 
     /** 执行单对象评估 */
-    public EvaluationContext execute(ExecuteEvaluationRequest req) {
+    public EvaluationContext execute(String sceneCode, String bizId, String dataPeriod,
+                                      Map<String, Object> rawData) {
         var ctx = new EvaluationContext();
-        ctx.setSceneCode(req.sceneCode());
-        ctx.setBizId(req.bizId());
-        ctx.setDataPeriod(req.dataPeriod());
-        ctx.setRawData(req.data());
+        ctx.setSceneCode(sceneCode);
+        ctx.setBizId(bizId);
+        ctx.setDataPeriod(dataPeriod);
+        ctx.setRawData(rawData);
         buildPipeline().execute(ctx);
         return ctx;
     }

@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -243,25 +245,129 @@ public class EvaluationController {
         ));
     }
 
-    /** AI 实验统计 — A2 */
+    /** AI 实验统计 — A2.2: P95 + 按模型/版本/指标分组 */
     @GetMapping("/experiments/stats")
     public Result<Map<String, Object>> experimentStats() {
         var all = experimentMapper.selectList(null);
         if (all == null || all.isEmpty()) return Result.ok(Map.of("message", "暂无实验数据"));
+
         long total = all.size();
-        double avgDuration = all.stream().filter(e -> e.getDurationMs() != null)
-                .mapToLong(io.github.accontra.eval.domain.model.EvalAiExperiment::getDurationMs)
-                .average().orElse(0);
-        long totalTokens = all.stream().filter(e -> e.getInputTokens() != null)
-                .mapToLong(e -> e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0))
-                .sum();
         long errors = all.stream().filter(e -> e.getErrorType() != null).count();
+        long totalTokens = all.stream().filter(e -> e.getInputTokens() != null)
+                .mapToLong(e -> e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0)).sum();
+
+        // 延迟统计
+        var durations = all.stream().filter(e -> e.getDurationMs() != null)
+                .mapToLong(io.github.accontra.eval.domain.model.EvalAiExperiment::getDurationMs)
+                .sorted().toArray();
+        long avgDuration = durations.length > 0 ? Math.round(Arrays.stream(durations).average().orElse(0)) : 0;
+        long p95Duration = durations.length > 0 ? durations[(int)(durations.length * 0.95)] : 0;
+
+        // 按模型分组
+        Map<String, Long> byModel = new LinkedHashMap<>();
+        for (var e : all) {
+            String m = e.getModel() != null ? e.getModel() : "unknown";
+            byModel.merge(m, 1L, Long::sum);
+        }
+
+        // 按 prompt 版本分组
+        Map<String, Map<String, Object>> byVersion = new LinkedHashMap<>();
+        for (var e : all) {
+            String v = e.getPromptVersion() != null ? e.getPromptVersion() : "unknown";
+            byVersion.computeIfAbsent(v, k -> {
+                var m = new LinkedHashMap<String, Object>();
+                m.put("calls", 0L); m.put("totalTokens", 0L); m.put("errors", 0L); m.put("durations", new java.util.ArrayList<Long>());
+                return m;
+            });
+            var m = byVersion.get(v);
+            m.put("calls", (Long)m.get("calls") + 1);
+            if (e.getInputTokens() != null) m.put("totalTokens", (Long)m.get("totalTokens") + e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0));
+            if (e.getErrorType() != null) m.put("errors", (Long)m.get("errors") + 1);
+            if (e.getDurationMs() != null) ((java.util.ArrayList<Long>)m.get("durations")).add(e.getDurationMs());
+        }
+        // 计算每个版本的平均延迟
+        Map<String, Object> versionStats = new LinkedHashMap<>();
+        for (var entry : byVersion.entrySet()) {
+            var m = entry.getValue();
+            var durs = (java.util.ArrayList<Long>) m.get("durations");
+            long avg = durs.isEmpty() ? 0 : Math.round(durs.stream().mapToLong(Long::longValue).average().orElse(0));
+            versionStats.put(entry.getKey(), Map.of(
+                    "calls", m.get("calls"),
+                    "totalTokens", m.get("totalTokens"),
+                    "avgDurationMs", avg,
+                    "errorRate", (Long)m.get("calls") > 0
+                            ? String.format("%.1f%%", 100.0 * (Long)m.get("errors") / (Long)m.get("calls")) : "0%"
+            ));
+        }
+
         return Result.ok(Map.of(
                 "totalCalls", total,
-                "avgDurationMs", Math.round(avgDuration),
+                "avgDurationMs", avgDuration,
+                "p95DurationMs", p95Duration,
                 "totalTokens", totalTokens,
                 "errorCount", errors,
-                "errorRate", total > 0 ? String.format("%.1f%%", 100.0 * errors / total) : "0%"
+                "errorRate", total > 0 ? String.format("%.1f%%", 100.0 * errors / total) : "0%",
+                "byModel", byModel,
+                "byVersion", versionStats
+        ));
+    }
+
+    /** 异常检测 — A2.2: 3σ 异常标记 */
+    @GetMapping("/experiments/anomalies")
+    public Result<Map<String, Object>> experimentAnomalies() {
+        var all = experimentMapper.selectList(null);
+        if (all == null || all.isEmpty()) return Result.ok(Map.of("message", "暂无实验数据"));
+
+        // 计算延迟均值 + 标准差
+        var durs = all.stream().filter(e -> e.getDurationMs() != null)
+                .mapToLong(io.github.accontra.eval.domain.model.EvalAiExperiment::getDurationMs).toArray();
+        double durMean = Arrays.stream(durs).average().orElse(0);
+        double durStd = Math.sqrt(Arrays.stream(durs).mapToDouble(d -> Math.pow(d - durMean, 2)).average().orElse(0));
+
+        // 计算 token 均值 + 标准差
+        var tokens = all.stream().filter(e -> e.getInputTokens() != null)
+                .mapToInt(e -> e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0)).toArray();
+        double tokMean = Arrays.stream(tokens).average().orElse(0);
+        double tokStd = Math.sqrt(Arrays.stream(tokens).mapToDouble(t -> Math.pow(t - tokMean, 2)).average().orElse(0));
+
+        double durThreshold = durMean + 3 * durStd;
+        double tokThreshold = tokMean + 3 * tokStd;
+
+        // 找异常
+        var slowOnes = all.stream().filter(e -> e.getDurationMs() != null && e.getDurationMs() > durThreshold)
+                .sorted((a,b) -> Long.compare(b.getDurationMs(), a.getDurationMs()))
+                .limit(5).map(e -> Map.of(
+                        "id", e.getId(), "bizId", e.getBizId() != null ? e.getBizId() : "",
+                        "durationMs", e.getDurationMs(), "type", "SLOW"))
+                .toList();
+
+        var heavyOnes = all.stream().filter(e -> e.getInputTokens() != null)
+                .filter(e -> (e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0)) > tokThreshold)
+                .sorted((a,b) -> Integer.compare(
+                        b.getInputTokens() + (b.getOutputTokens() != null ? b.getOutputTokens() : 0),
+                        a.getInputTokens() + (a.getOutputTokens() != null ? a.getOutputTokens() : 0)))
+                .limit(5).map(e -> Map.of(
+                        "id", e.getId(), "bizId", e.getBizId() != null ? e.getBizId() : "",
+                        "tokens", e.getInputTokens() + (e.getOutputTokens() != null ? e.getOutputTokens() : 0),
+                        "type", "HEAVY_TOKEN"))
+                .toList();
+
+        var errors = all.stream().filter(e -> e.getErrorType() != null)
+                .limit(5).map(e -> Map.of(
+                        "id", e.getId(), "bizId", e.getBizId() != null ? e.getBizId() : "",
+                        "errorType", e.getErrorType(), "type", "ERROR"))
+                .toList();
+
+        return Result.ok(Map.of(
+                "durationMean", Math.round(durMean),
+                "durationStd", Math.round(durStd),
+                "durationThreshold", Math.round(durThreshold),
+                "tokenMean", Math.round(tokMean),
+                "tokenStd", Math.round(tokStd),
+                "tokenThreshold", Math.round(tokThreshold),
+                "slowQueries", slowOnes,
+                "heavyTokenQueries", heavyOnes,
+                "errorQueries", errors
         ));
     }
 

@@ -300,11 +300,16 @@ public class EvaluationController {
             ));
         }
 
+        // A2.3: 累计费用
+        double totalCost = all.stream().filter(e -> e.getCost() != null)
+                .mapToDouble(e -> e.getCost().doubleValue()).sum();
+
         return Result.ok(Map.of(
                 "totalCalls", total,
                 "avgDurationMs", avgDuration,
                 "p95DurationMs", p95Duration,
                 "totalTokens", totalTokens,
+                "totalCost", String.format("%.6f", totalCost),
                 "errorCount", errors,
                 "errorRate", total > 0 ? String.format("%.1f%%", 100.0 * errors / total) : "0%",
                 "byModel", byModel,

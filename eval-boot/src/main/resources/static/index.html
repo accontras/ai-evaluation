@@ -94,6 +94,7 @@ td{padding:8px 12px;border-bottom:1px solid #1e293b}
         <div class="stat-card"><div class="val" id="obsCalls">-</div><div class="lbl">LLM调用</div></div>
         <div class="stat-card"><div class="val" id="obsP95">-</div><div class="lbl">P95延迟</div></div>
         <div class="stat-card"><div class="val" id="obsTokens">-</div><div class="lbl">Token消耗</div></div>
+        <div class="stat-card"><div class="val" id="obsCost">-</div><div class="lbl">累计费用(¥)</div></div>
       </div>
       <div id="anomalyAlert" style="font-size:12px"></div>
     </div>
@@ -279,6 +280,7 @@ function loadObservability(){
     document.getElementById('obsCalls').textContent=s.totalCalls||0;
     document.getElementById('obsP95').textContent=(s.p95DurationMs||0)+'ms';
     document.getElementById('obsTokens').textContent=(s.totalTokens||0);
+    document.getElementById('obsCost').textContent='¥'+(s.totalCost||'0');
   });
   fetch(API+'/evaluation/experiments/anomalies').then(r=>r.json()).then(d=>{
     if(d.code!=='00000') return;

@@ -2,6 +2,7 @@
 change: rag-retrieval-quality-eval
 design-doc: docs/superpowers/specs/2026-07-22-rag-retrieval-quality-eval-design.md
 base-ref: 9ea09bfa9ec5f26baa8dfaa8c5f66068e5c1998f
+archived-with: 2026-07-21-rag-retrieval-quality-eval
 ---
 
 # RAG 检索质量评测 — 实施计划
@@ -23,6 +24,7 @@ base-ref: 9ea09bfa9ec5f26baa8dfaa8c5f66068e5c1998f
 - SQL 迁移脚本存 `docs/sql/`，命名 `V{NNN}__{name}.sql`
 - 新类包名：`io.github.accontra.eval.{domain|infrastructure|application|boot}.{subpackage}`
 
+archived-with: 2026-07-21-rag-retrieval-quality-eval
 ---
 
 ### Task 1: Ground Truth 标注数据集
@@ -84,6 +86,7 @@ base-ref: 9ea09bfa9ec5f26baa8dfaa8c5f66068e5c1998f
 - [x] 7.1 撰写 `wiki/research/RAG-检索质量评测-20260722.md`（实验目的 + 数据说明 + 结果表 + 图表引用 + 结论）
 - [x] 7.2 更新 `docs/AI-KNOWLEDGE-REF.md` 添加指向实验笔记的链接
 
+archived-with: 2026-07-21-rag-retrieval-quality-eval
 ---
 
 ## Dependency Sequencing

@@ -2,7 +2,6 @@ package io.github.accontra.eval.infrastructure.rag;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.apache.lucene.codecs.lucene99.Lucene99Codec;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.search.*;
@@ -40,7 +39,6 @@ public class VectorIndexService {
             Files.createDirectories(INDEX_DIR);
             directory = FSDirectory.open(INDEX_DIR);
             var config = new IndexWriterConfig()
-                    .setCodec(new Lucene99Codec())
                     .setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
             this.writer = new IndexWriter(directory, config);
             this.available = true;

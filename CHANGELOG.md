@@ -5,7 +5,7 @@
 ### AI 工程化
 - **A1 Prompt 工程**: 3 版本管理 (v1-base/v2-standards/v3-fewshot), DB 存储, 运行时切换
 - **A2 LLM 可观测性**: eval_ai_experiment 全链路追踪, token/延迟/P95/异常/成本
-- **A3 RAG 检索**: SimilarCaseService 特征相似度 + few-shot 注入
+- **A3 RAG 检索**: 向量语义检索 (bge-small-zh-v1.5 + Lucene HNSW) → 规则降级, 端到端通过
 - **A4 AI 可靠性**: ResilientLlmClient 熔断/重试/fallback 链 (deepseek→glm→qwen)
 
 ### 核心系统

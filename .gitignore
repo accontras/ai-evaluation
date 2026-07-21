@@ -20,3 +20,9 @@ Thumbs.db
 # Env (don't commit API keys)
 .env
 application-local.yml
+
+# RAG runtime data
+data/
+
+# RAG large model files (> 50MB — download separately)
+eval-infrastructure/src/main/resources/rag/model.onnx

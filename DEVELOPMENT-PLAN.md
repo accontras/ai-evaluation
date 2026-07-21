@@ -25,7 +25,7 @@
 |------|------|---------|------|---------|
 | A1 | Prompt 工程体系 | 3-4 周 | 🔄 | Prompt 是可测试、可迭代的工程资产 |
 | A2 | LLM 可观测性 | 2 周 | ⬜ | 每次 LLM 调用可见、可度量、可审计 |
-| A3 | RAG 入门 | 3-4 周 | ⬜ | Embedding / 向量检索 / 检索质量度量 |
+| A3 | RAG 入门 | 3-4 周 | 🔄 | Embedding / 向量检索 / 检索质量度量 (A3.1+A3.2 ✅, A3.3 ⬜) |
 | A4 | AI 可靠性工程 | 2 周 | ⬜ | 熔断/降级/重试/多模型 fallback 链 |
 | A5 | 发布 | 2 周 | ⬜ | 能力沉淀后的输出，不是赶工交付 |
 
@@ -195,74 +195,68 @@ v3:  A1(Prompt工程) → A2(可观测性) → A3(RAG) → A4(可靠性) → A5(
 
 ---
 
-## A3: RAG 入门（3-4 周）⬜
+## A3: RAG 入门（3-4 周）🔄
 
 > 核心认知: RAG 不是"接个向量数据库"。RAG 是一整条 pipeline——embedding 怎么选、chunk 怎么切、检索怎么评、如何注入 prompt——每一步都有工程决策。
 
-### A3.1 Embedding + 向量存储
-**时间**: 3 个 session（~9h）
+### A3.1 Embedding + 向量存储 ✅ (2026-07-21)
+**实际耗时**: 1 个 session（~4h 编码 + 踩坑）
 
 ```
-□ 选型评估:
-  - Embedding 模型: text-embedding-3-small (OpenAI) vs bge-large-zh (本地)
-  - 向量存储: ChromaDB (最简单) / Qdrant (功能全) / 本地文件 (零依赖)
-  - 决策依据写进 ADR
-□ 历史评估记录 → Embedding → 向量存储:
-  - 对什么内容做 embedding？评估摘要 + 指标得分 + 事件描述
-  - 每次评估完成后异步生成 embedding
-□ 根据你的环境选最简单的方案:
-  - 推荐: text-embedding-3-small (已有 OpenAI 兼容 key) + ChromaDB (pip install 就行)
+✅ 选型评估:
+  - Embedding 模型: bge-small-zh-v1.5 (BAAI, 512维, ONNX 90MB, 本地 CPU 推理)
+  - 向量存储: Lucene HNSW (纯 Java, 零外部依赖)
+  - 决策依据: 本地部署/数据不出域/零 API 费用/Windows 兼容
+  - 详细选型: wiki/ai/RAG-基础知识-从零到懂.md
+✅ 历史评估记录 → Embedding → 向量存储:
+  - 对指标名+实际值+LLM打分理由做 embedding
+  - 启动时异步迁移 126 条历史记录（37秒）
+  - 每次评估完成后增量写入索引
+✅ 实现:
+  - EmbeddingService: ONNX Runtime 直连推理, mean pooling + L2 归一化
+  - VectorIndexService: Lucene 9.x KnnVectorField HNSW 索引
+  - VectorRagService: encode(3-5ms) + search(6-11ms), 总延迟 ~10-15ms
+  - RagIndexInitializer: 异步全量迁移 + 增量钩子
+  - LlmScoringStrategy: 向量优先 → 规则降级 → 空 safe fallback 三层防护
+✅ 落地指南: wiki/ai/RAG-落地实践指南.md
 ```
 
-**验证**: 10 条历史记录 → embedding → 可检索
+**验证**: ✅ 126 条历史记录 → embedding → 向量检索可用, 端到端评估通过
 
-**AI 工程化收获**:
-- embedding 不是魔法，是把文本变成数字向量
-- 理解了为什么"选 embedding 模型"是个工程决策（成本/质量/延迟的权衡）
+**坑点记录**:
+- Maven 阿里云镜像劫持: `mirrorOf` 从 `*` 改为 `*,!central`
+- DJL `djl-core` artifact 不存在 → 改用 `ai.djl:api`
+- DJL `ModelZoo.loadModel()` 不支持本地 ONNX → 换 ONNX Runtime Java API 直连
+- ONNX 模型需 `token_type_ids` 输入（代码只传了 input_ids + attention_mask）
+- `Lucene99Codec` 类在 Lucene 9.12 中已移除
 
-### A3.2 检索 + 注入 Prompt
+### A3.2 检索 + 注入 Prompt ✅ (2026-07-21)
+
+```
+✅ 检索策略:
+  - 对每个指标分别向量检索 Top-2, 合并去重取 Top-3
+  - 向量无结果 → 降级到 SimilarCaseService 规则检索
+✅ 注入 LLM Prompt 作为 few-shot:
+  - "## 语义相似历史案例（向量检索）" 段落
+  - 案例含: 指标名 + 得分 + 理由 + 相似度%
+✅ 已集成进 LlmScoringStrategy.buildFewShot() → H3 Pipeline
+```
+
+**验证**: ✅ 评估对象 → 自动向量检索 3 个相似案例 → 注入 prompt → LLM 打分参考
+
+### A3.3 检索质量评测 ⬜
 **时间**: 2 个 session（~6h）
 
 ```
-□ 检索策略:
-  - 评估新对象时 → 检索 Top-3 相似历史案例
-  - 相似度阈值: 低于 0.7 的不返回（避免噪声）
-□ 注入 LLM Prompt 作为 few-shot 示例:
-  - "以下是 3 个相似的评估案例，供你参考打分尺度：..."
-  - 案例包含: 指标值 + 最终得分 + 关键判断理由
-□ API: GET /api/v1/ai-experiments/similar-cases?logId=xxx
-  - 返回: [{ similarity: 0.89, case: {...} }, ...]
-```
-
-**验证**: 评估一个对象 → 自动检索 3 个相似案例 → 注入 prompt → LLM 打分参考
-
-**AI 工程化收获**:
-- 理解了 chunking 策略对检索效果的影响
-- 理解了"检索到的东西不一定有用"——相关性 ≠ 有用性
-
-### A3.3 检索质量评测
-**时间**: 2 个 session（~6h）
-
-```
+□ 影子模式验证（建议先跑 1-2 周收集对比数据）:
+  - 双跑 RULE + VECTOR, 记录到 eval_ai_experiment
+  - 对比 Hit Rate@K 和 NDCG@K
 □ 人工标注: 10-20 条"理想检索结果"
-□ 自动计算:
-  - Recall@K: Top-K 结果中覆盖了多少理想结果？
-  - MRR (Mean Reciprocal Rank): 第一个正确答案排第几？
-□ 对比实验:
-  - 不同 embedding 模型 → 检索质量差异？
-  - 不同 chunking 策略 → 检索质量差异？
-□ 这个评测本身就是 AI 工程化的体现
 □ 输出: 一份 RAG 实验笔记（wiki/research/）
 ```
 
-**验证**: 有量化的检索质量数据（不只是"感觉还行"）
-
-**AI 工程化收获**:
-- RAG 不是接上就行，需要评测和迭代
-- 理解了"离线评测"和"在线评测"的区别
-
 **核心交付物（A3 完成标志）**:
-- [ ] RAG pipeline 端到端跑通
+- [x] RAG pipeline 端到端跑通
 - [ ] 检索质量有量化数据
 - [ ] 一份 RAG 实验笔记
 
@@ -448,7 +442,7 @@ v3:  A1(Prompt工程) → A2(可观测性) → A3(RAG) → A4(可靠性) → A5(
 |------|------|-----------|--------|---------|
 | A1 | Prompt 工程体系 | 6-7 | 3-4 周 | 多模型对比数据 + Prompt 版本化 + 实验报告 |
 | A2 | LLM 可观测性 | 4 | 2 周 | 全链路追踪 + 统计 API |
-| A3 | RAG 入门 | 7 | 3-4 周 | RAG pipeline + 检索质量评测 + 实验笔记 |
+| A3 | RAG 入门 | 7 | 3-4 周 | RAG pipeline ✅ + 检索质量评测 + 实验笔记 |
 | A4 | AI 可靠性工程 | 4 | 2 周 | 多模型 fallback + 熔断降级分层 |
 | A5 | 发布 | 5 | 2 周 | 技术博客 + 开源仓库 |
 | **总计** | | **~27** | **~3-4 个月** | |

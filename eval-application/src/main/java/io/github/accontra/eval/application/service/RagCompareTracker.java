@@ -90,6 +90,19 @@ public class RagCompareTracker {
         else if (ruleHas) ruleOnly.incrementAndGet();
         else neither.incrementAndGet();
 
+        synchronized (recent) {
+            recent.add(Map.of(
+                    "bizId", bizId != null ? bizId : "",
+                    "vectorHas", vectorHas,
+                    "ruleHas", ruleHas,
+                    "vectorCount", vectorIds != null ? vectorIds.size() : 0,
+                    "ruleCount", ruleIds != null ? ruleIds.size() : 0,
+                    "time", System.currentTimeMillis()));
+            if (recent.size() > MAX_RECENT) {
+                recent.subList(0, recent.size() - MAX_RECENT).clear();
+            }
+        }
+
         // DB 写入（完整字段）
         try {
             EvalRagCompareLog dbLog = new EvalRagCompareLog();

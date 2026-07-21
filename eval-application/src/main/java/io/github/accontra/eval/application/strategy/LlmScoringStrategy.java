@@ -7,6 +7,7 @@ import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
+import io.github.accontra.eval.application.service.PromptTemplateService;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
@@ -60,23 +61,27 @@ public class LlmScoringStrategy {
     private final EvalModelStandardMapper standardMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EvalAiExperimentMapper experimentMapper;
+    private final PromptTemplateService promptService;
 
-    /** 完整构造 (Spring 注入) */
+    /** 完整构造 (Spring 注入, A1.2: +PromptTemplateService) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
                                EvalIndicatorLogMapper indicatorLogMapper,
-                               EvalAiExperimentMapper experimentMapper) {
+                               EvalAiExperimentMapper experimentMapper,
+                               PromptTemplateService promptService) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
         this.experimentMapper = experimentMapper;
+        this.promptService = promptService;
     }
 
-    /** 简化构造 (测试用, 无标准注入和 few-shot) */
+    /** 简化构造 (测试用) */
     public LlmScoringStrategy(LlmClient llmClient) {
         this.llmClient = llmClient;
         this.standardMapper = null;
         this.indicatorLogMapper = null;
         this.experimentMapper = null;
+        this.promptService = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -115,16 +120,21 @@ public class LlmScoringStrategy {
                 count++;
             }
 
+            // A1.2: 从 DB 加载 Prompt (替代硬编码)
+            String systemPrompt = loadPrompt("SCORING_SYSTEM");
+            String userTemplate = loadPrompt("SCORING_USER");
+            if (userTemplate.isEmpty()) userTemplate = USER_PROMPT_TMPL;
+
             // Few-shot: 加载历史 TRIVIAL 案例作为参考
             String fewShot = buildFewShot(ctx);
-            String userPrompt = USER_PROMPT_TMPL
+            String userPrompt = userTemplate
                     .replace("{{fewShot}}", fewShot)
                     .replace("{{bizId}}", ctx.getBizId() != null ? ctx.getBizId() : "unknown")
                     .replace("{{indicatorTable}}", table.toString())
                     .replace("{{count}}", String.valueOf(count));
 
-            log.info("[LLM] 请求打分(含标准), bizId={}, indicators={}", ctx.getBizId(), count);
-            var resp = llmClient.chatForJson(SYSTEM_PROMPT, userPrompt);
+            log.info("[LLM] 请求打分(via DB prompt), bizId={}, indicators={}", ctx.getBizId(), count);
+            var resp = llmClient.chatForJson(systemPrompt, userPrompt);
             var json = resp.json();
             if (json == null) {
                 log.warn("[LLM] JSON 解析失败, 降级处理");
@@ -153,6 +163,13 @@ public class LlmScoringStrategy {
             log.error("[LLM] 打分失败, 降级处理", e);
             return degradedScores(ctx);
         }
+    }
+
+    /** A1.2: 从 DB 加载 Prompt (回退到硬编码) */
+    private String loadPrompt(String key) {
+        if (promptService == null) return key.equals("SCORING_SYSTEM") ? SYSTEM_PROMPT : USER_PROMPT_TMPL;
+        var tpl = promptService.getActive(key);
+        return tpl != null ? tpl.getTemplateText() : (key.equals("SCORING_SYSTEM") ? SYSTEM_PROMPT : USER_PROMPT_TMPL);
     }
 
     /** 加载模型级评分标准, 按 indexId 分组 */

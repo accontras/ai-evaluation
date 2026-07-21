@@ -106,8 +106,13 @@ io.github.accontra.eval
 每个 Session 结束前:
 1. `mvn compile` — 零错误
 2. `mvn test` — 新增测试全绿
-3. API 验证 — curl 返回预期结果
+3. **前端验证** — 浏览器打开 `http://localhost:8080/`，能用页面操作新功能（不依赖 curl/Postman）
 4. `git commit` — 一个 session 一个 commit
+
+### 前后端配套
+
+**每个后端 API 必须同步开发前端页面。** 前端位置: `eval-boot/src/main/resources/static/index.html`。
+不可交付"只能用 curl 调"的功能——Dashboard 上点按钮操作才是真正的验收。
 
 ## 四、Git 提交规范
 

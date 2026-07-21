@@ -4,6 +4,7 @@ import io.github.accontra.eval.api.request.ExecuteEvaluationRequest;
 import io.github.accontra.eval.api.response.ExecuteEvaluationResponse;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.service.EvaluationDomainService;
+import io.github.accontra.eval.application.service.RagCompareTracker;
 import io.github.accontra.eval.application.service.SimilarCaseService;
 import io.github.accontra.eval.common.Result;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
@@ -29,15 +30,18 @@ public class EvaluationController {
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalAiExperimentMapper experimentMapper;
     private final SimilarCaseService similarCaseService;
+    private final RagCompareTracker ragCompareTracker;
 
     public EvaluationController(EvaluationDomainService domainService,
                                  EvalObjectLogMapper objectLogMapper,
                                  EvalAiExperimentMapper experimentMapper,
-                                 SimilarCaseService similarCaseService) {
+                                 SimilarCaseService similarCaseService,
+                                 RagCompareTracker ragCompareTracker) {
         this.domainService = domainService;
         this.objectLogMapper = objectLogMapper;
         this.experimentMapper = experimentMapper;
         this.similarCaseService = similarCaseService;
+        this.ragCompareTracker = ragCompareTracker;
     }
 
     /** 执行单对象评估 */
@@ -144,6 +148,12 @@ public class EvaluationController {
                 "similarity", Math.round(c.similarity())
         )).toList();
         return Result.ok(Map.of("indexCode", indexCode, "value", value, "cases", list));
+    }
+
+    /** A3.3 RAG 影子模式: 向量 vs 规则对比统计 */
+    @GetMapping("/rag-compare/stats")
+    public Result<Map<String, Object>> ragCompareStats() {
+        return Result.ok(ragCompareTracker.getStats());
     }
 
     /** A4: 韧性状态 */

@@ -8,6 +8,7 @@ import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
 import io.github.accontra.eval.application.service.PromptTemplateService;
+import io.github.accontra.eval.application.service.RagCompareTracker;
 import io.github.accontra.eval.application.service.SimilarCaseService;
 import io.github.accontra.eval.infrastructure.rag.VectorRagService;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
@@ -66,14 +67,16 @@ public class LlmScoringStrategy {
     private final PromptTemplateService promptService;
     private final SimilarCaseService similarCaseService;
     private final VectorRagService vectorRagService;
+    private final RagCompareTracker ragCompareTracker;
 
-    /** 完整构造 (Spring 注入, A3: +SimilarCaseService +VectorRagService) */
+    /** 完整构造 (Spring 注入, A3: +SimilarCaseService +VectorRagService +RagCompareTracker) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
                                EvalIndicatorLogMapper indicatorLogMapper,
                                EvalAiExperimentMapper experimentMapper,
                                PromptTemplateService promptService,
                                SimilarCaseService similarCaseService,
-                               VectorRagService vectorRagService) {
+                               VectorRagService vectorRagService,
+                               RagCompareTracker ragCompareTracker) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
@@ -81,6 +84,7 @@ public class LlmScoringStrategy {
         this.promptService = promptService;
         this.similarCaseService = similarCaseService;
         this.vectorRagService = vectorRagService;
+        this.ragCompareTracker = ragCompareTracker;
     }
 
     /** 简化构造 (测试用) */
@@ -92,6 +96,7 @@ public class LlmScoringStrategy {
         this.promptService = null;
         this.similarCaseService = null;
         this.vectorRagService = null;
+        this.ragCompareTracker = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -263,14 +268,20 @@ public class LlmScoringStrategy {
         }
     }
 
-    /** A3: 向量语义检索 + 规则检索降级 */
+    /** A3: 向量语义检索 + 规则检索降级 + A3.3 影子模式对比 */
     private String buildFewShot(EvaluationContext ctx) {
         if (ctx.getRawValues() == null || ctx.getRawValues().isEmpty()) return "";
 
         try {
-            // 优先: 向量语义检索 (A3.1)
+            // A3.3 影子模式: 向量可用时双跑对比
             if (vectorRagService != null && vectorRagService.isAvailable()) {
-                return buildFewShotVector(ctx);
+                String vectorResult = buildFewShotVector(ctx);
+                String ruleResult = similarCaseService != null ? buildFewShotRule(ctx) : "";
+
+                // 记录对比
+                compareAndLog(ctx, vectorResult, ruleResult);
+
+                return vectorResult;
             }
             // 降级: 规则特征检索 (原有)
             if (similarCaseService != null) {
@@ -281,6 +292,32 @@ public class LlmScoringStrategy {
             return buildFewShotRule(ctx);
         }
         return "";
+    }
+
+    /** A3.3: 影子模式 — 双跑对比并记录 */
+    private void compareAndLog(EvaluationContext ctx, String vectorResult, String ruleResult) {
+        boolean vectorHas = !vectorResult.isEmpty();
+        boolean ruleHas = !ruleResult.isEmpty();
+
+        // 记录到追踪器
+        if (ragCompareTracker != null) {
+            ragCompareTracker.record(ctx.getBizId(), vectorHas, ruleHas,
+                    vectorResult.length(), ruleResult.length());
+        }
+
+        // 日志
+        if (vectorHas && ruleHas) {
+            log.info("[RAG-Compare] BOTH: vector={}chars, rule={}chars, bizId={}",
+                    vectorResult.length(), ruleResult.length(), ctx.getBizId());
+        } else if (vectorHas) {
+            log.info("[RAG-Compare] VECTOR_ONLY: vector={}chars, bizId={}",
+                    vectorResult.length(), ctx.getBizId());
+        } else if (ruleHas) {
+            log.info("[RAG-Compare] RULE_ONLY: rule={}chars, bizId={}",
+                    ruleResult.length(), ctx.getBizId());
+        } else {
+            log.info("[RAG-Compare] NEITHER: bizId={}", ctx.getBizId());
+        }
     }
 
     /** A3.1 向量检索: 对每个指标分别搜索, 合并去重 Top-3 */

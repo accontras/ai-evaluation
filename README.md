@@ -91,9 +91,12 @@ eval-system/
 
 ## 文档
 
-| 文档 | 路径 |
-|------|------|
-| AI 功能实现 | [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) |
+> **📖 全书入口**: [docs/BOOK.md](docs/BOOK.md) — 系统级技术手册，从概念到实现的全链路文档。
+
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| **系统全书** | [docs/BOOK.md](docs/BOOK.md) | 16章完整手册 |
+| AI 功能实现 | [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) | 三个 AI 切入点详解 |
 | 核心架构设计 | [docs/design/ai-evaluation-system-architecture.md](docs/design/ai-evaluation-system-architecture.md) |
 | 技术计划 | [docs/design/TECHNICAL-PLAN.md](docs/design/TECHNICAL-PLAN.md) |
 | 术语表 | [docs/design/GLOSSARY.md](docs/design/GLOSSARY.md) |

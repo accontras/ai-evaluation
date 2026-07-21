@@ -316,6 +316,23 @@ public record LlmResponse(
 ) {}
 ```
 
+### 10.5 Prompt 版本化管理 (A1.2)
+
+**核心认知**: Prompt 是代码——可测试、可版本化、可对比、可回滚。
+
+```
+硬编码 (旧)                          DB 版本化 (新)
+SYSTEM_PROMPT = "..."               SELECT template_text 
+                                     FROM eval_prompt_template
+                                     WHERE prompt_key=? AND is_active=1
+```
+
+**存储**: `eval_prompt_template` 表，每个 `(prompt_key, version)` 唯一一行。
+**切换**: `POST /prompts/{id}/activate` — 激活新版本，自动禁用同 key 其他版本。
+**对比**: `GET /prompts/stats` — 按版本聚合调用次数/延迟/token/错误率。
+
+当前种子数据：v1-base / v2-standards / v3-fewshot，共 6 条（2 keys × 3 versions）。
+
 ### 10.3 实验记录 (A2)
 
 每次 LLM 调用自动写入 `eval_ai_experiment`:

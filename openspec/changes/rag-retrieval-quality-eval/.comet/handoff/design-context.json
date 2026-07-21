@@ -1,0 +1,14 @@
+{
+  "change": "rag-retrieval-quality-eval",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "f224b92ab3731614048de9e2efb1d600f3b2e6555c7637a9eb17a2eecd0625e9",
+  "files": [
+    { "path": "openspec/changes/rag-retrieval-quality-eval/proposal.md", "sha256": "d86db1026b3782363f96527f8c1613d63e5cee8c05f8bae2d066e6a698820c30" },
+    { "path": "openspec/changes/rag-retrieval-quality-eval/design.md", "sha256": "47c4bd9ce8c31bef14a108d1e371b03ca74e080e1b352f4e724be31d9bfcdc62" },
+    { "path": "openspec/changes/rag-retrieval-quality-eval/tasks.md", "sha256": "274491f256b62bfa7a2eaa494457abd3c88101b5653052fbdf0d6f43245b047a" },
+    { "path": "openspec/changes/rag-retrieval-quality-eval/specs/rag-quality-metrics/spec.md", "sha256": "bd976c2fa9413626490f998be70d83690813a62d897f7a76d0c7ff76d57c1625" }
+  ]
+}

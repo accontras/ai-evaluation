@@ -2,6 +2,7 @@ package io.github.accontra.eval.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.accontra.eval.application.service.PromptTemplateService;
+import io.github.accontra.eval.application.service.RagCompareTracker;
 import io.github.accontra.eval.application.service.SimilarCaseService;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
@@ -41,7 +42,10 @@ public class CacheConfig {
                                                    EvalAiExperimentMapper experimentMapper,
                                                    PromptTemplateService promptService,
                                                    SimilarCaseService similarCaseService,
-                                                   VectorRagService vectorRagService) {
-        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper, experimentMapper, promptService, similarCaseService, vectorRagService);
+                                                   VectorRagService vectorRagService,
+                                                   RagCompareTracker ragCompareTracker) {
+        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper,
+                experimentMapper, promptService, similarCaseService, vectorRagService,
+                ragCompareTracker);
     }
 }

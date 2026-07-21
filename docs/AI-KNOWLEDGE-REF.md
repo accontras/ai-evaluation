@@ -25,6 +25,10 @@
   摄入→分块→Embedding→向量检索→Rerank→生成全链路教程，含 7 个常见陷阱。
   **用在哪**: A3 实战参考，7 个陷阱是 A3 测试用例的素材。
 
+- **[RAG 检索质量评测（2026-07-22）](../../wiki/research/RAG-检索质量评测-20260722.md)**
+  A3.3 检索质量量化评测：HR@K / NDCG@K 双通道对比 + 人工标注 ground truth + Chart.js 可视化。
+  **用在哪**: 向量检索 vs 规则检索的量化对比基准，RAG 质量持续改进的基线。
+
 ### 数据库与基础设施
 
 - **[PostgreSQL 18 原生向量搜索](../../wiki/tech-reference/PostgreSQL18-原生向量搜索.md)**

@@ -58,6 +58,29 @@ llm:
       label: "DeepSeek(t=0.1)"
       temperature: 0.1
 
+---
+spring:
+  config:
+    activate:
+      on-profile: rag-eval
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:mysql://localhost:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 2396308dqf
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: enabled
+      logic-delete-value: 0
+      logic-not-delete-value: 1
+
 logging:
   level:
-    io.github.accontra.eval: DEBUG
+    io.github.accontra.eval: INFO

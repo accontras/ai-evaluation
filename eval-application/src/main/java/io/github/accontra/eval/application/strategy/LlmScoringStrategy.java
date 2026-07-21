@@ -272,26 +272,32 @@ public class LlmScoringStrategy {
     private String buildFewShot(EvaluationContext ctx) {
         if (ctx.getRawValues() == null || ctx.getRawValues().isEmpty()) return "";
 
-        try {
-            // A3.3 影子模式: 向量可用时双跑对比
-            if (vectorRagService != null && vectorRagService.isAvailable()) {
-                String vectorResult = buildFewShotVector(ctx);
-                String ruleResult = similarCaseService != null ? buildFewShotRule(ctx) : "";
+        // A3.3 影子模式: 向量可用时双跑对比
+        if (vectorRagService != null && vectorRagService.isAvailable()) {
+            String vectorResult = safeBuildFewShotVector(ctx);
+            String ruleResult = safeBuildFewShotRule(ctx);
 
-                // 记录对比
-                compareAndLog(ctx, vectorResult, ruleResult);
+            // 无论成功失败都记录对比
+            compareAndLog(ctx, vectorResult, ruleResult);
 
-                return vectorResult;
-            }
-            // 降级: 规则特征检索 (原有)
-            if (similarCaseService != null) {
-                return buildFewShotRule(ctx);
-            }
-        } catch (Exception e) {
-            log.warn("[RAG] 检索失败, 降级到规则检索: {}", e.getMessage());
-            return buildFewShotRule(ctx);
+            // 向量有结果用向量, 否则降级规则
+            if (!vectorResult.isEmpty()) return vectorResult;
+            if (!ruleResult.isEmpty()) return ruleResult;
+            return "";
         }
-        return "";
+
+        // 降级: 规则特征检索 (原有)
+        return safeBuildFewShotRule(ctx);
+    }
+
+    private String safeBuildFewShotVector(EvaluationContext ctx) {
+        try { return buildFewShotVector(ctx); }
+        catch (Exception e) { log.warn("[RAG] 向量检索异常: {}", e.getMessage()); return ""; }
+    }
+
+    private String safeBuildFewShotRule(EvaluationContext ctx) {
+        try { return buildFewShotRule(ctx); }
+        catch (Exception e) { log.warn("[RAG] 规则检索异常: {}", e.getMessage()); return ""; }
     }
 
     /** A3.3: 影子模式 — 双跑对比并记录 */

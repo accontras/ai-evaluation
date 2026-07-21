@@ -10,6 +10,7 @@ import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
 import io.github.accontra.eval.application.strategy.RuleScoreStrategy;
 import io.github.accontra.eval.domain.service.EvalIndexService;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.llm.ResilientLlmClient;
 import io.github.accontra.eval.infrastructure.mapper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ public class EvaluationDomainService {
     private final MultiModelCompareService multiModelService;
     private final AiSummaryService summaryService;
     private final EvalAiExperimentMapper experimentMapper;
+    private final ResilientLlmClient resilientClient;
 
     public EvaluationDomainService(ModelConfigCache configCache, EvalIndexService indexService,
                                     LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
@@ -57,7 +59,8 @@ public class EvaluationDomainService {
                                     EvalModelEventMapper modelEventMapper, EvalEventLogMapper eventLogMapper,
                                     EvalGradeMappingMapper gradeMappingMapper,
                                     RankingService rankingService, MultiModelCompareService multiModelService,
-                                    AiSummaryService summaryService, EvalAiExperimentMapper experimentMapper) {
+                                    AiSummaryService summaryService, EvalAiExperimentMapper experimentMapper,
+                                    ResilientLlmClient resilientClient) {
         this.configCache = configCache;
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;
@@ -74,6 +77,7 @@ public class EvaluationDomainService {
         this.multiModelService = multiModelService;
         this.summaryService = summaryService;
         this.experimentMapper = experimentMapper;
+        this.resilientClient = resilientClient;
     }
 
     /** 执行单对象评估 */
@@ -114,6 +118,8 @@ public class EvaluationDomainService {
 
     /** AI 总结 */
     public String generateSummary(Long objectLogId) { return summaryService.generateSummary(objectLogId); }
+    /** A4 韧性状态 */
+    public Map<String, Object> getResilienceStatus() { return resilientClient.getStatus(); }
 
     // ---- Pipeline 组装 ----
 

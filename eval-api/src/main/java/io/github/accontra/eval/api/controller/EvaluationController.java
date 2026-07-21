@@ -146,6 +146,12 @@ public class EvaluationController {
         return Result.ok(Map.of("indexCode", indexCode, "value", value, "cases", list));
     }
 
+    /** A4: 韧性状态 */
+    @GetMapping("/resilience")
+    public Result<Map<String, Object>> resilienceStatus() {
+        return Result.ok(domainService.getResilienceStatus());
+    }
+
     /** 异常检测 */
     @GetMapping("/experiments/anomalies")
     public Result<Map<String, Object>> experimentAnomalies() {

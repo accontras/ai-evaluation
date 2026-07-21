@@ -7,13 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
-/**
- * LLM Bean 配置 — A1.1 多模型基础设施。
- *
- * 注册 3 个 LlmClient Bean (deepseek / glm / qwen)。
- * 当前所有 Bean 共用同一个 api-key 和 DeepSeek endpoint ——
- * 接入真实 GLM/Qwen key 时只需改 application.yml。
- */
+import java.util.List;
+
 @Configuration
 public class LlmConfig {
 
@@ -21,28 +16,30 @@ public class LlmConfig {
 
     @Bean
     @ConfigurationProperties(prefix = "llm")
-    public LlmProperties llmProperties() {
-        return new LlmProperties();
-    }
+    public LlmProperties llmProperties() { return new LlmProperties(); }
 
-    @Bean
-    @Primary
+    @Bean("deepseek")
     public LlmClient deepseekClient(LlmProperties props) {
-        log.info("[LLM] deepseek: baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
         return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
     }
 
     @Bean("glm")
     public LlmClient glmClient(LlmProperties props) {
-        // TODO: 替换为 GLM 的真实 baseUrl + model 后，使用独立的 api-key
-        log.info("[LLM] glm (暂用 DeepSeek): baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
         return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
     }
 
     @Bean("qwen")
     public LlmClient qwenClient(LlmProperties props) {
-        // TODO: 替换为 Qwen 的真实 baseUrl + model 后，使用独立的 api-key
-        log.info("[LLM] qwen (暂用 DeepSeek): baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
         return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
+    }
+
+    @Bean
+    @Primary
+    public ResilientLlmClient resilientLlmClient(LlmProperties props) {
+        var primary = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
+        var glm = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
+        var qwen = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
+        log.info("[LLM] ResilientClient: primary={}, fallbacks=[glm,qwen], retries=1, circuitThreshold=5", props.getModel());
+        return new ResilientLlmClient(primary, List.of(glm, qwen), 1, 5);
     }
 }

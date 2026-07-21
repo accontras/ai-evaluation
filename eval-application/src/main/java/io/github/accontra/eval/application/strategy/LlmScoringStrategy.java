@@ -240,6 +240,9 @@ public class LlmScoringStrategy {
                 exp.setTemperature(BigDecimal.valueOf(llmClient.getTemperature()));
                 exp.setErrorType(m.errorType());
                 exp.setRetryCount(0);
+                // A2.3: 成本计算 (DeepSeek: ¥1/M input, ¥2/M output)
+                double cost = (m.inputTokens() * 0.001 + m.outputTokens() * 0.002) / 1000.0;
+                exp.setCost(BigDecimal.valueOf(Math.round(cost * 1000000.0) / 1000000.0));
                 exp.setCreatedAt(java.time.LocalDateTime.now());
                 experimentMapper.insert(exp);
             }

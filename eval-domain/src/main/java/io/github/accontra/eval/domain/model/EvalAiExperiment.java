@@ -24,6 +24,7 @@ public class EvalAiExperiment {
     private BigDecimal temperature;
     private String errorType;
     private Integer retryCount;
+    private BigDecimal cost;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
@@ -61,6 +62,8 @@ public class EvalAiExperiment {
     public void setErrorType(String v) { errorType = v; }
     public Integer getRetryCount() { return retryCount; }
     public void setRetryCount(Integer v) { retryCount = v; }
+    public BigDecimal getCost() { return cost; }
+    public void setCost(BigDecimal v) { cost = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime v) { createdAt = v; }
 }

@@ -28,12 +28,9 @@ public class PromptTemplateService {
     public PromptTemplateService(EvalPromptTemplateMapper mapper) { this.mapper = mapper; }
 
     /** 加载当前活跃的 Prompt */
-    @Cacheable(value = "prompts", key = "#promptKey")
-    public EvalPromptTemplate getActive(String promptKey) {
+    public EvalPromptTemplate getActive() {
         var qw = new LambdaQueryWrapper<EvalPromptTemplate>()
-                .eq(EvalPromptTemplate::getPromptKey, promptKey)
                 .eq(EvalPromptTemplate::getIsActive, 1)
-                .orderByDesc(EvalPromptTemplate::getVersion)
                 .last("LIMIT 1");
         return mapper.selectOne(qw);
     }
@@ -60,8 +57,8 @@ public class PromptTemplateService {
         var sys = getVersion("SCORING_SYSTEM", version);
         var usr = getVersion("SCORING_USER", version);
         return Map.of(
-                "system", sys != null ? sys.getTemplateText() : "",
-                "user", usr != null ? usr.getTemplateText() : "");
+                "system", sys != null ? sys.getSystemText() : "",
+                "user", usr != null ? usr.getUserText() : "");
     }
 
     /** 激活版本 (同时禁用同 key 其他版本) */

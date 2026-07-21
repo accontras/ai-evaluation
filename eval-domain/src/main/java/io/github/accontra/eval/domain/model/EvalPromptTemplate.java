@@ -9,7 +9,8 @@ public class EvalPromptTemplate {
     private Long id;
     private String promptKey;
     private String version;
-    private String templateText;
+    private String systemText;
+    private String userText;
     private String description;
     private Integer isActive;
     @TableField(fill = FieldFill.INSERT)
@@ -21,8 +22,10 @@ public class EvalPromptTemplate {
     public void setPromptKey(String v) { promptKey = v; }
     public String getVersion() { return version; }
     public void setVersion(String v) { version = v; }
-    public String getTemplateText() { return templateText; }
-    public void setTemplateText(String v) { templateText = v; }
+    public String getSystemText() { return systemText; }
+    public void setSystemText(String v) { systemText = v; }
+    public String getUserText() { return userText; }
+    public void setUserText(String v) { userText = v; }
     public String getDescription() { return description; }
     public void setDescription(String v) { description = v; }
     public Integer getIsActive() { return isActive; }

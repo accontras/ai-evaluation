@@ -37,7 +37,7 @@ import java.util.*;
 public class RagQualityEvalRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(RagQualityEvalRunner.class);
-    private static final int TOP_K = 3;
+    private static final int TOP_K = 5;  // = max(K_VALUES), 保证 K=5 评测有足够结果
     private static final int[] K_VALUES = {1, 3, 5};
 
     private final VectorRagService vectorRagService;

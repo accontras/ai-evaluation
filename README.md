@@ -2,108 +2,104 @@
 
 > **AI 原生评估系统**: LLM 打分 + 规则引擎验证。AI 坐主桌，规则引擎当镜子。
 
-## 架构哲学
+[![Java](https://img.shields.io/badge/Java-17-orange)](https://adoptium.net/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-green)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
+[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek-blueviolet)](https://deepseek.com)
+
+## 核心理念
 
 ```
 LLM 通道 (默认)          规则引擎通道 (对比基线)
 语义判断 | 上下文感知    vs    JEXL 确定计算 | 可审计路径
          └──────────┬──────────┘
               ┌─────▼─────┐
-              │ 对比 + 仲裁 │  ← 差异分级 TRIVIAL/NOTABLE/SIGNIFICANT
+              │ 对比 + 仲裁 │  ← TRIVIAL / NOTABLE / SIGNIFICANT
               └─────┬─────┘
               ┌─────▼─────┐
-              │  树聚合     │  ← 规则引擎负责 (永不交给 LLM)
+              │  Stage 树  │  ← 规则引擎负责 (审计底线)
               └─────┬─────┘
               ┌─────▼─────┐
-              │ 事件 + 落库 │  ← 双通道 RED_LINE 检测
+              │  落库 + 展示│
               └───────────┘
 ```
 
-## Pipeline
-
-```
-H1 加载配置 → H2 提取指标 → H3 双通道打分+树聚合 → H4 事件/红线 → H6 汇总落库
-```
+**三个 AI 切入点**: H3 打分 / H4 异常检测 / H6 总结 —— 恰好是评估系统里最有判断力的三个环节。
 
 ## 快速启动
 
 ```bash
-# 本地开发
-bash restart.sh
-curl http://localhost:8080/actuator/health
+# 1. 准备 MySQL 数据库
+mysql -u root -e "CREATE DATABASE eval_db"
+mysql -u root eval_db < docs/sql/V003__clean_schema.sql
+mysql -u root eval_db < docs/sql/V004__seed_data.sql
 
-# Docker
-docker-compose up -d
+# 2. 配置 LLM API Key
+export LLM_API_KEY=sk-your-deepseek-key
+
+# 3. 构建 + 启动
+bash restart.sh
+
+# 4. 打开 Dashboard
+open http://localhost:8080/
 ```
 
-## API
+## 功能全景
+
+| 模块 | 能力 | 说明 |
+|------|------|------|
+| 🤖 **AI 打分** | LLM-as-Judge | DeepSeek 语义理解, 有据可查 |
+| ⚖️ **双通道对比** | LLM vs 规则引擎 | TRIVIAL/NOTABLE/SIGNIFICANT 差异分级 |
+| 🌳 **Stage 树** | TOP/NORMAL/LEAF | 自底向上加权聚合, 路由分叉 |
+| 🚨 **事件/红线** | 双通道检测 | RULE/LLM/BOTH 交叉验证, 红线×0.6 |
+| 📊 **等级排名** | S/A/B/C/D + 奥运排名 | 同分并列 1,1,3,4 |
+| 📝 **AI 总结** | 两轮自审 | Round1 生成 → Round2 审阅修正 |
+| 🔍 **RAG 检索** | 特征相似度 | 历史案例检索 + few-shot 注入 |
+| 🛡️ **AI 可靠性** | 熔断/重试/fallback | deepseek→glm→qwen 链 |
+| 📈 **可观测性** | 全链路追踪 | token/延迟/P95/异常/成本 |
+| 🎨 **Dashboard** | Chart.js 可视化 | 一键触发 + 实时结果 + 图表对比 |
+
+## API 速查
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/v1/evaluation/execute` | POST | 执行评估 (双通道) |
-| `/api/v1/evaluation/compare/stats` | GET | 双通道对比统计 |
-| `/api/v1/evaluation/rank/{sceneCode}` | POST | 奥运排名 |
-| `/api/v1/evaluation/summary/{id}` | POST/GET | AI 总结 (两轮自审) |
-| `/api/v1/scene/copy` | POST | 从模型创建方案 |
-| `/api/v1/scene/list` | GET | 方案列表 |
-| `/api/v1/scene/{id}/publish` | POST | 发布方案 |
-| `/api/v1/grade-mapping/list` | GET | 等级映射 CRUD |
-| `/api/v1/grade-mapping/batch` | POST | 批量保存等级 |
-| `/actuator/health` | GET | 健康检查 |
-| `/swagger-ui.html` | GET | API 文档 (OpenAPI) |
+| `POST /api/v1/evaluation/execute` | POST | 执行评估 |
+| `GET /api/v1/evaluation/compare/stats` | GET | 对比统计 |
+| `POST /api/v1/evaluation/rank/{scene}` | POST | 奥运排名 |
+| `POST /api/v1/evaluation/summary/{id}` | POST | AI 总结 |
+| `GET /api/v1/evaluation/experiments/stats` | GET | 实验统计 |
+| `GET /api/v1/evaluation/resilience` | GET | 韧性状态 |
+| `GET /api/v1/evaluation/similar-cases/{code}/{val}` | GET | 相似案例(RAG) |
+| `GET /api/v1/prompts` | GET | Prompt 版本管理 |
+| `POST /api/v1/scene/copy` | POST | 创建方案 |
 
 ## 技术栈
 
-| 组件 | 版本 |
-|------|------|
-| JDK | 17 (Temurin) |
-| Spring Boot | 3.3.5 |
-| MyBatis-Plus | 3.5.7 |
-| MySQL | 8.0 |
-| JEXL | 3.3 |
-| Caffeine | (via Spring Cache) |
-| DeepSeek | API (LLM-as-Judge) |
-
-## 开发进度
-
-```
-M0: ✅ 地基 (2/2)
-M1: ✅ ★ AI 先打分 (8/8)
-M2: ✅ 规则引擎+对比 (8/8)
-M3: 🔄 完整系统 (9/12)
-```
-
-## 项目结构
-
-```
-eval-system/
-├── eval-common/         # 枚举、异常、Result、ExpressionUtil
-├── eval-domain/         # 25 Entity + Service 接口
-├── eval-infrastructure/ # 25 Mapper + LLM + DataPull
-├── eval-application/    # Pipeline + Handler + Strategy + DomainService
-├── eval-api/            # Controller + Request/Response DTO
-├── eval-boot/           # Spring Boot 入口 + 测试 + 配置
-├── docs/sql/            # DDL 迁移脚本
-├── Dockerfile
-├── docker-compose.yml
-└── restart.sh
-```
+Java 17 · Spring Boot 3.3 · MyBatis-Plus 3.5 · MySQL 8 · JEXL 3.3 · Caffeine · DeepSeek API · Chart.js
 
 ## 文档
 
-> **📖 全书入口**: [docs/BOOK.md](docs/BOOK.md) — 系统级技术手册，从概念到实现的全链路文档。
+📖 **[系统全书](docs/BOOK.md)** — 16 章完整手册: 架构/概念/ADR/实现/AI/API
 
-| 文档 | 路径 | 说明 |
-|------|------|------|
-| **系统全书** | [docs/BOOK.md](docs/BOOK.md) | 16章完整手册 |
-| AI 功能实现 | [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) | 三个 AI 切入点详解 |
-| 核心架构设计 | [docs/design/ai-evaluation-system-architecture.md](docs/design/ai-evaluation-system-architecture.md) |
-| 技术计划 | [docs/design/TECHNICAL-PLAN.md](docs/design/TECHNICAL-PLAN.md) |
-| 术语表 | [docs/design/GLOSSARY.md](docs/design/GLOSSARY.md) |
-| 架构决策 (ADR) | [docs/design/adr/](docs/design/adr/) — 21 条 |
-| 开发计划 | [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md) |
-| 执行明细 | [PLAN-DETAIL.md](PLAN-DETAIL.md) |
-| 编码规范 | [AGENTS.md](AGENTS.md) |
+| 文档 | 说明 |
+|------|------|
+| [BOOK.md](docs/BOOK.md) | 系统全书 |
+| [AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) | AI 实现详解 |
+| [LLM-SCORING-DESIGN.md](docs/design/LLM-SCORING-DESIGN.md) | LLM 打分设计 |
+| [A1.2-PROMPT-VERSIONING.md](docs/design/A1.2-PROMPT-VERSIONING.md) | Prompt 版本化 |
+| [A2-LLM-OBSERVABILITY.md](docs/design/A2-LLM-OBSERVABILITY.md) | 可观测性设计 |
+| [adr/](docs/design/adr/) | 21 条架构决策 |
+| [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md) | 开发计划 |
+| [AGENTS.md](AGENTS.md) | 编码规范 |
+
+## 版本
+
+| Tag | 里程碑 |
+|-----|--------|
+| `v0.1.0-m1` | AI 先打分 |
+| `v0.2.0-m2` | 双通道对比 |
+| `v0.3.0-m3` | 完整系统 |
+| `v1.0.0` | 正式发布 |
 
 ## License
 

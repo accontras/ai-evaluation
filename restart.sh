@@ -1,17 +1,20 @@
 #!/bin/bash
-# eval-system restart script — stop, package, start jar, wait for health
+# eval-system restart script — kill → clean install → start jar → wait health
 # Usage: bash restart.sh
+#
+# 关键: 用 mvn install (非 package), 确保依赖模块更新到本地 Maven 仓库
+#       先 kill 进程再 clean, 避免 jar 文件锁
 
 set -e
 PORT=8080
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$APP_DIR/tmp"
-JAR=$(find "$APP_DIR/eval-boot/target" -maxdepth 1 -name "*.jar" -not -name "*sources*" 2>/dev/null | head -1)
+JAVA17="$HOME/.jdks/temurin-17/bin/java"
 mkdir -p "$LOG_DIR"
 
 echo "=== eval-system restart ==="
 
-# 1. Kill existing process on port
+# 1. Kill existing process on port (必须先杀, 否则 jar 被锁无法 clean)
 PID=$(netstat -ano 2>/dev/null | grep ":$PORT " | grep LISTENING | awk '{print $NF}' | head -1)
 if [ -n "$PID" ]; then
     echo "Killing process on port $PORT (PID=$PID)..."
@@ -19,20 +22,18 @@ if [ -n "$PID" ]; then
     sleep 2
 fi
 
-# 2. Switch JDK + package
-echo "Packaging..."
+# 2. Full rebuild — install 所有模块到本地仓库, 再打包 boot
+echo "Building (install all modules → local repo)..."
 source "$APP_DIR/setup-env.sh" 2>/dev/null
-mvn package -DskipTests -q -f "$APP_DIR/pom.xml" 2>&1 | tail -3
+mvn clean install -DskipTests -q -f "$APP_DIR/pom.xml" 2>&1 | tail -3
 JAR=$(find "$APP_DIR/eval-boot/target" -maxdepth 1 -name "*.jar" -not -name "*sources*" | head -1)
 
-# 3. Start app in background
+# 3. Start
 echo "Starting $JAR ..."
-JAVA17="$HOME/.jdks/temurin-17/bin/java"
 nohup "$JAVA17" -jar "$JAR" > "$LOG_DIR/app.log" 2>&1 &
-APP_PID=$!
-echo "App PID: $APP_PID"
+echo "App PID: $!"
 
-# 4. Wait for health
+# 4. Wait health
 echo -n "Waiting for health..."
 for i in $(seq 1 30); do
     sleep 2

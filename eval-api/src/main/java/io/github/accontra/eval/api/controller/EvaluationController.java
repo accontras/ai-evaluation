@@ -42,14 +42,14 @@ public class EvaluationController {
     @PostMapping("/execute")
     public Result<ExecuteEvaluationResponse> execute(@RequestBody ExecuteEvaluationRequest req) {
         log.info("评估请求: sceneCode={}, bizId={}", req.sceneCode(), req.bizId());
-        var ctx = domainService.execute(req);
+        var ctx = domainService.execute(req.sceneCode(), req.bizId(), req.dataPeriod(), req.data());
         return Result.ok(buildResponse(ctx));
     }
 
     /** 多模型对比 */
     @PostMapping("/compare-models")
     public Result<Map<String, Object>> compareModels(@RequestBody ExecuteEvaluationRequest req) {
-        var ctx = domainService.execute(req);
+        var ctx = domainService.execute(req.sceneCode(), req.bizId(), req.dataPeriod(), req.data());
         var result = domainService.compareModels(ctx);
         return Result.ok(Map.of("bizId", req.bizId(), "scores", result.modelScores(), "stdDevs", result.stdDevs()));
     }

@@ -7,7 +7,9 @@ import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
+import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
 import org.slf4j.Logger;
@@ -57,13 +59,16 @@ public class LlmScoringStrategy {
     private final LlmClient llmClient;
     private final EvalModelStandardMapper standardMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
+    private final EvalAiExperimentMapper experimentMapper;
 
     /** 完整构造 (Spring 注入) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
-                               EvalIndicatorLogMapper indicatorLogMapper) {
+                               EvalIndicatorLogMapper indicatorLogMapper,
+                               EvalAiExperimentMapper experimentMapper) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
+        this.experimentMapper = experimentMapper;
     }
 
     /** 简化构造 (测试用, 无标准注入和 few-shot) */
@@ -71,6 +76,7 @@ public class LlmScoringStrategy {
         this.llmClient = llmClient;
         this.standardMapper = null;
         this.indicatorLogMapper = null;
+        this.experimentMapper = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -118,7 +124,15 @@ public class LlmScoringStrategy {
                     .replace("{{count}}", String.valueOf(count));
 
             log.info("[LLM] 请求打分(含标准), bizId={}, indicators={}", ctx.getBizId(), count);
-            var json = llmClient.chatForJson(SYSTEM_PROMPT, userPrompt);
+            var resp = llmClient.chatForJson(SYSTEM_PROMPT, userPrompt);
+            var json = resp.json();
+            if (json == null) {
+                log.warn("[LLM] JSON 解析失败, 降级处理");
+                return degradedScores(ctx);
+            }
+
+            // A2: 记录实验数据
+            recordExperiment(ctx, resp, count);
 
             Map<String, ScoreResult> results = new LinkedHashMap<>();
             JSONArray scores = json.getJSONArray("scores");
@@ -187,6 +201,33 @@ public class LlmScoringStrategy {
 
     private String stripZero(BigDecimal v) {
         return v.stripTrailingZeros().toPlainString();
+    }
+
+    /** A2: 记录每次 LLM 调用到实验表 */
+    private void recordExperiment(EvaluationContext ctx,
+                                   LlmClient.LlmJsonResponse resp, int indicatorCount) {
+        if (experimentMapper == null) return;
+        try {
+            var m = resp.metrics();
+            for (int i = 0; i < indicatorCount; i++) {
+                var exp = new EvalAiExperiment();
+                exp.setExperimentType("SCORING");
+                exp.setModel(llmClient.getModel());
+                exp.setPromptVersion("v3-standards-fewshot");
+                exp.setSceneCode(ctx.getSceneCode());
+                exp.setBizId(ctx.getBizId());
+                exp.setInputTokens(m.inputTokens());
+                exp.setOutputTokens(m.outputTokens());
+                exp.setDurationMs(m.durationMs());
+                exp.setTemperature(BigDecimal.valueOf(llmClient.getTemperature()));
+                exp.setErrorType(m.errorType());
+                exp.setRetryCount(0);
+                exp.setCreatedAt(java.time.LocalDateTime.now());
+                experimentMapper.insert(exp);
+            }
+        } catch (Exception e) {
+            log.debug("[Experiment] 记录失败: {}", e.getMessage());
+        }
     }
 
     /** 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */

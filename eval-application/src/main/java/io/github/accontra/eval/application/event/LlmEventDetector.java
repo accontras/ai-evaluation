@@ -94,7 +94,9 @@ public class LlmEventDetector {
             }
 
             log.info("[LLM-Event] 开始异常检测, bizId={}", ctx.getBizId());
-            JSONObject json = llmClient.chatForJson(SYSTEM_PROMPT, userPrompt);
+            var resp = llmClient.chatForJson(SYSTEM_PROMPT, userPrompt);
+            var json = resp.json();
+            if (json == null) return new AnomalyResult(false, "NONE", "LLM JSON 解析失败", List.of());
 
             boolean hasAnomaly = json.getBool("hasAnomaly", false);
             String riskLevel = json.getStr("riskLevel", "NONE");

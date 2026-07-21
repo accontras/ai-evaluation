@@ -28,9 +28,10 @@ public class MultiModelCompareService {
     public MultiModelCompareService(LlmScoringStrategy primaryScoring,
                                      @Qualifier("llmClientLowTemp") LlmClient altClient,
                                      io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper standardMapper,
-                                     io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper indicatorLogMapper) {
+                                     io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper indicatorLogMapper,
+                                     io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper experimentMapper) {
         this.primaryScoring = primaryScoring;
-        this.altScoring = new LlmScoringStrategy(altClient, standardMapper, indicatorLogMapper);
+        this.altScoring = new LlmScoringStrategy(altClient, standardMapper, indicatorLogMapper, experimentMapper);
     }
 
     /**

@@ -3,6 +3,7 @@ package io.github.accontra.eval.config;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
+import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
 import org.springframework.cache.CacheManager;
@@ -33,7 +34,8 @@ public class CacheConfig {
     @Bean
     public LlmScoringStrategy llmScoringStrategy(LlmClient llmClient,
                                                    EvalModelStandardMapper standardMapper,
-                                                   EvalIndicatorLogMapper indicatorLogMapper) {
-        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper);
+                                                   EvalIndicatorLogMapper indicatorLogMapper,
+                                                   EvalAiExperimentMapper experimentMapper) {
+        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper, experimentMapper);
     }
 }

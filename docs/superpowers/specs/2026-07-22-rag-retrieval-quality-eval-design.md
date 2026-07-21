@@ -2,6 +2,8 @@
 comet_change: rag-retrieval-quality-eval
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-07-21-rag-retrieval-quality-eval
+status: final
 ---
 
 # RAG 检索质量评测 — 技术设计

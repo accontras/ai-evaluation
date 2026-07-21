@@ -4,8 +4,7 @@ import io.github.accontra.eval.api.request.ExecuteEvaluationRequest;
 import io.github.accontra.eval.api.response.ExecuteEvaluationResponse;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.service.EvaluationDomainService;
-import io.github.accontra.eval.application.strategy.DualChannelScoringService;
-import io.github.accontra.eval.application.strategy.LlmScoringStrategy;
+import io.github.accontra.eval.application.service.SimilarCaseService;
 import io.github.accontra.eval.common.Result;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.domain.model.EvalIndex;
@@ -29,13 +28,16 @@ public class EvaluationController {
     private final EvaluationDomainService domainService;
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalAiExperimentMapper experimentMapper;
+    private final SimilarCaseService similarCaseService;
 
     public EvaluationController(EvaluationDomainService domainService,
                                  EvalObjectLogMapper objectLogMapper,
-                                 EvalAiExperimentMapper experimentMapper) {
+                                 EvalAiExperimentMapper experimentMapper,
+                                 SimilarCaseService similarCaseService) {
         this.domainService = domainService;
         this.objectLogMapper = objectLogMapper;
         this.experimentMapper = experimentMapper;
+        this.similarCaseService = similarCaseService;
     }
 
     /** 执行单对象评估 */
@@ -126,6 +128,22 @@ public class EvaluationController {
         return Result.ok(Map.of("totalCalls", total, "avgDurationMs", avg, "p95DurationMs", p95,
                 "totalTokens", tokens, "totalCost", String.format("%.6f", cost),
                 "errorCount", errors, "errorRate", total > 0 ? String.format("%.1f%%", 100.0 * errors / total) : "0%"));
+    }
+
+    /** A3 RAG: 相似案例检索 */
+    @GetMapping("/similar-cases/{indexCode}/{value}")
+    public Result<Map<String, Object>> similarCases(@PathVariable("indexCode") String indexCode,
+                                                      @PathVariable("value") double value) {
+        var cases = similarCaseService.findSimilar(indexCode, value, 5);
+        var list = cases.stream().map(c -> Map.of(
+                "indexCode", c.log().getIndexCode(),
+                "llmScore", c.log().getLlmScore(),
+                "ruleScore", c.log().getRuleScore(),
+                "diffLevel", c.log().getDiffLevel(),
+                "reason", c.log().getLlmReason() != null ? c.log().getLlmReason().substring(0, Math.min(80, c.log().getLlmReason().length())) : "",
+                "similarity", Math.round(c.similarity())
+        )).toList();
+        return Result.ok(Map.of("indexCode", indexCode, "value", value, "cases", list));
     }
 
     /** 异常检测 */

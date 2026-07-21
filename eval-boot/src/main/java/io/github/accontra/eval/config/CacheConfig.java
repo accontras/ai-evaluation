@@ -8,6 +8,7 @@ import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
 import io.github.accontra.eval.infrastructure.mapper.EvalModelStandardMapper;
+import io.github.accontra.eval.infrastructure.rag.VectorRagService;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -39,7 +40,8 @@ public class CacheConfig {
                                                    EvalIndicatorLogMapper indicatorLogMapper,
                                                    EvalAiExperimentMapper experimentMapper,
                                                    PromptTemplateService promptService,
-                                                   SimilarCaseService similarCaseService) {
-        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper, experimentMapper, promptService, similarCaseService);
+                                                   SimilarCaseService similarCaseService,
+                                                   VectorRagService vectorRagService) {
+        return new LlmScoringStrategy(llmClient, standardMapper, indicatorLogMapper, experimentMapper, promptService, similarCaseService, vectorRagService);
     }
 }

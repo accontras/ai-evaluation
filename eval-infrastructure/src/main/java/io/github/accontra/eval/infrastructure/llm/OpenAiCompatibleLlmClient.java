@@ -96,10 +96,10 @@ public class OpenAiCompatibleLlmClient implements LlmClient {
     @Override
     public LlmJsonResponse chatForJson(String systemPrompt, String userPrompt) {
         var resp = chat(systemPrompt, userPrompt);
-        if (resp.content == null) {
+        if (resp.content() == null) {
             return new LlmJsonResponse(null, resp);
         }
-        String raw = resp.content;
+        String raw = resp.content();
         String jsonStr = raw;
         if (raw.contains("```json")) {
             jsonStr = raw.substring(raw.indexOf("```json") + 7, raw.lastIndexOf("```"));

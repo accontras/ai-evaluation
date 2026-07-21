@@ -36,8 +36,8 @@ public class MultiModelCompareService {
                                      EvalIndicatorLogMapper indicatorLogMapper,
                                      EvalAiExperimentMapper experimentMapper) {
         this.primaryScoring = primaryScoring;
-        this.glmScoring = new LlmScoringStrategy(glmClient, standardMapper, indicatorLogMapper, experimentMapper, null, null);
-        this.qwenScoring = new LlmScoringStrategy(qwenClient, standardMapper, indicatorLogMapper, experimentMapper, null, null);
+        this.glmScoring = new LlmScoringStrategy(glmClient, standardMapper, indicatorLogMapper, experimentMapper, null, null, null);
+        this.qwenScoring = new LlmScoringStrategy(qwenClient, standardMapper, indicatorLogMapper, experimentMapper, null, null, null);
     }
 
     /**

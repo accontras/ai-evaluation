@@ -9,6 +9,7 @@ import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
 import io.github.accontra.eval.application.service.PromptTemplateService;
 import io.github.accontra.eval.application.service.SimilarCaseService;
+import io.github.accontra.eval.infrastructure.rag.VectorRagService;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
@@ -64,19 +65,22 @@ public class LlmScoringStrategy {
     private final EvalAiExperimentMapper experimentMapper;
     private final PromptTemplateService promptService;
     private final SimilarCaseService similarCaseService;
+    private final VectorRagService vectorRagService;
 
-    /** 完整构造 (Spring 注入, A3: +SimilarCaseService) */
+    /** 完整构造 (Spring 注入, A3: +SimilarCaseService +VectorRagService) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
                                EvalIndicatorLogMapper indicatorLogMapper,
                                EvalAiExperimentMapper experimentMapper,
                                PromptTemplateService promptService,
-                               SimilarCaseService similarCaseService) {
+                               SimilarCaseService similarCaseService,
+                               VectorRagService vectorRagService) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
         this.experimentMapper = experimentMapper;
         this.promptService = promptService;
         this.similarCaseService = similarCaseService;
+        this.vectorRagService = vectorRagService;
     }
 
     /** 简化构造 (测试用) */
@@ -87,6 +91,7 @@ public class LlmScoringStrategy {
         this.experimentMapper = null;
         this.promptService = null;
         this.similarCaseService = null;
+        this.vectorRagService = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -258,34 +263,103 @@ public class LlmScoringStrategy {
         }
     }
 
-    /** A3: 用 RAG 检索相似案例替代简单 TRIVIAL 查询 */
+    /** A3: 向量语义检索 + 规则检索降级 */
     private String buildFewShot(EvaluationContext ctx) {
-        if (similarCaseService == null || ctx.getRawValues() == null) return "";
+        if (ctx.getRawValues() == null || ctx.getRawValues().isEmpty()) return "";
+
         try {
-            // 取第一个指标的值作为查询条件
-            var rawValues = ctx.getRawValues();
-            if (rawValues.isEmpty()) return "";
-            var firstEntry = rawValues.entrySet().iterator().next();
-            String indexCode = firstEntry.getKey();
-            Object rawValue = firstEntry.getValue();
-
-            var cases = similarCaseService.findSimilar(indexCode, rawValue, 3);
-            if (cases.isEmpty()) return "";
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("## 历史相似案例（基于指标特征检索）\n\n");
-            int n = 0;
-            for (var c : cases) {
-                n++;
-                sb.append(String.format("案例%d: %s (相似度:%.0f%%)\n",
-                        n, c.toPromptExample(), c.similarity()));
+            // 优先: 向量语义检索 (A3.1)
+            if (vectorRagService != null && vectorRagService.isAvailable()) {
+                return buildFewShotVector(ctx);
             }
-            sb.append("\n");
-            return sb.toString();
+            // 降级: 规则特征检索 (原有)
+            if (similarCaseService != null) {
+                return buildFewShotRule(ctx);
+            }
         } catch (Exception e) {
-            log.warn("[RAG] 检索失败: {}", e.getMessage());
-            return "";
+            log.warn("[RAG] 检索失败, 降级到规则检索: {}", e.getMessage());
+            return buildFewShotRule(ctx);
         }
+        return "";
+    }
+
+    /** A3.1 向量检索: 对每个指标分别搜索, 合并去重 Top-3 */
+    private String buildFewShotVector(EvaluationContext ctx) {
+        var rawValues = ctx.getRawValues();
+        var indexBaseMap = ctx.getIndexBaseMap();
+        var seenIds = new HashSet<Long>();
+        var allCases = new ArrayList<VectorRagService.SimilarCase>();
+
+        for (var entry : rawValues.entrySet()) {
+            String indexCode = entry.getKey();
+            String indexName = "";
+            if (indexBaseMap != null) {
+                for (var idx : indexBaseMap.values()) {
+                    if (indexCode.equals(idx.getCode())) {
+                        indexName = idx.getName();
+                        break;
+                    }
+                }
+            }
+            String dataValue = entry.getValue() != null ? entry.getValue().toString() : "";
+
+            var cases = vectorRagService.search(indexCode, indexName, dataValue, 2);
+            for (var c : cases) {
+                if (c.log().getId() != null && seenIds.add(c.log().getId())) {
+                    allCases.add(c);
+                }
+            }
+        }
+
+        if (allCases.isEmpty()) {
+            // 向量检索无结果 → 降级到规则检索
+            return buildFewShotRule(ctx);
+        }
+
+        // 按相似度降序, 取 Top-3
+        allCases.sort((a, b) -> Double.compare(b.similarity(), a.similarity()));
+        var topCases = allCases.subList(0, Math.min(3, allCases.size()));
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("## 语义相似历史案例（向量检索）\n\n");
+        int n = 0;
+        for (var c : topCases) {
+            n++;
+            sb.append(String.format("案例%d: %s(得分=%.1f, 理由=%.60s) [相似度:%.0f%%]\n",
+                    n,
+                    c.log().getIndexName() != null ? c.log().getIndexName() : c.log().getIndexCode(),
+                    c.log().getLlmScore() != null ? c.log().getLlmScore() : 0,
+                    c.log().getLlmReason() != null
+                            ? c.log().getLlmReason().substring(0, Math.min(60, c.log().getLlmReason().length()))
+                            : "",
+                    c.similarity()));
+        }
+        sb.append("\n");
+        return sb.toString();
+    }
+
+    /** 规则检索: 原有 SimilarCaseService (只取第一个指标) */
+    private String buildFewShotRule(EvaluationContext ctx) {
+        if (similarCaseService == null) return "";
+        var rawValues = ctx.getRawValues();
+        if (rawValues.isEmpty()) return "";
+        var firstEntry = rawValues.entrySet().iterator().next();
+        String indexCode = firstEntry.getKey();
+        Object rawValue = firstEntry.getValue();
+
+        var cases = similarCaseService.findSimilar(indexCode, rawValue, 3);
+        if (cases.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("## 历史相似案例（基于指标特征检索）\n\n");
+        int n = 0;
+        for (var c : cases) {
+            n++;
+            sb.append(String.format("案例%d: %s (相似度:%.0f%%)\n",
+                    n, c.toPromptExample(), c.similarity()));
+        }
+        sb.append("\n");
+        return sb.toString();
     }
 
     /** (废弃) 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */

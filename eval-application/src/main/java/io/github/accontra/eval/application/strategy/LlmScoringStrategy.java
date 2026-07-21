@@ -8,6 +8,7 @@ import io.github.accontra.eval.domain.model.EvalIndex;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalModelStandard;
 import io.github.accontra.eval.application.service.PromptTemplateService;
+import io.github.accontra.eval.application.service.SimilarCaseService;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.mapper.EvalAiExperimentMapper;
@@ -62,17 +63,20 @@ public class LlmScoringStrategy {
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EvalAiExperimentMapper experimentMapper;
     private final PromptTemplateService promptService;
+    private final SimilarCaseService similarCaseService;
 
-    /** 完整构造 (Spring 注入, A1.2: +PromptTemplateService) */
+    /** 完整构造 (Spring 注入, A3: +SimilarCaseService) */
     public LlmScoringStrategy(LlmClient llmClient, EvalModelStandardMapper standardMapper,
                                EvalIndicatorLogMapper indicatorLogMapper,
                                EvalAiExperimentMapper experimentMapper,
-                               PromptTemplateService promptService) {
+                               PromptTemplateService promptService,
+                               SimilarCaseService similarCaseService) {
         this.llmClient = llmClient;
         this.standardMapper = standardMapper;
         this.indicatorLogMapper = indicatorLogMapper;
         this.experimentMapper = experimentMapper;
         this.promptService = promptService;
+        this.similarCaseService = similarCaseService;
     }
 
     /** 简化构造 (测试用) */
@@ -82,6 +86,7 @@ public class LlmScoringStrategy {
         this.indicatorLogMapper = null;
         this.experimentMapper = null;
         this.promptService = null;
+        this.similarCaseService = null;
     }
 
     public Map<String, ScoreResult> scoreAll(EvaluationContext ctx) {
@@ -231,7 +236,9 @@ public class LlmScoringStrategy {
                 var exp = new EvalAiExperiment();
                 exp.setExperimentType("SCORING");
                 exp.setModel(llmClient.getModel());
-                exp.setPromptVersion("v3-standards-fewshot");
+                // A1.2: 动态读取活跃 Prompt 版本
+                var activeTpl = promptService != null ? promptService.getActive() : null;
+                exp.setPromptVersion(activeTpl != null ? activeTpl.getVersion() : "unknown");
                 exp.setSceneCode(ctx.getSceneCode());
                 exp.setBizId(ctx.getBizId());
                 exp.setInputTokens(m.inputTokens());
@@ -251,8 +258,39 @@ public class LlmScoringStrategy {
         }
     }
 
-    /** 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */
+    /** A3: 用 RAG 检索相似案例替代简单 TRIVIAL 查询 */
     private String buildFewShot(EvaluationContext ctx) {
+        if (similarCaseService == null || ctx.getRawValues() == null) return "";
+        try {
+            // 取第一个指标的值作为查询条件
+            var rawValues = ctx.getRawValues();
+            if (rawValues.isEmpty()) return "";
+            var firstEntry = rawValues.entrySet().iterator().next();
+            String indexCode = firstEntry.getKey();
+            Object rawValue = firstEntry.getValue();
+
+            var cases = similarCaseService.findSimilar(indexCode, rawValue, 3);
+            if (cases.isEmpty()) return "";
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("## 历史相似案例（基于指标特征检索）\n\n");
+            int n = 0;
+            for (var c : cases) {
+                n++;
+                sb.append(String.format("案例%d: %s (相似度:%.0f%%)\n",
+                        n, c.toPromptExample(), c.similarity()));
+            }
+            sb.append("\n");
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("[RAG] 检索失败: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /** (废弃) 从最近 TRIVIAL 对比记录中提取 few-shot 示例 */
+    @Deprecated
+    private String buildFewShotLegacy(EvaluationContext ctx) {
         if (indicatorLogMapper == null) return "";
         try {
             var qw = new LambdaQueryWrapper<EvalIndicatorLog>()

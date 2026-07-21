@@ -7,6 +7,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+/**
+ * LLM Bean 配置 — A1.1 多模型基础设施。
+ *
+ * 注册 3 个 LlmClient Bean (deepseek / glm / qwen)。
+ * 当前所有 Bean 共用同一个 api-key 和 DeepSeek endpoint ——
+ * 接入真实 GLM/Qwen key 时只需改 application.yml。
+ */
 @Configuration
 public class LlmConfig {
 
@@ -20,17 +27,22 @@ public class LlmConfig {
 
     @Bean
     @Primary
-    public LlmClient llmClient(LlmProperties props) {
-        log.info("LLM config: provider={}, baseUrl={}, model={}, apiKey={}...",
-                props.getProvider(), props.getBaseUrl(), props.getModel(),
-                props.getApiKey() != null && !props.getApiKey().isEmpty()
-                        ? props.getApiKey().substring(0, Math.min(8, props.getApiKey().length())) : "EMPTY");
-        return new LlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel());
+    public LlmClient deepseekClient(LlmProperties props) {
+        log.info("[LLM] deepseek: baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
+        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
     }
 
-    @Bean("llmClientLowTemp")
-    public LlmClient llmClientLowTemp(LlmProperties props) {
-        log.info("LLM alt config: t=0.1, model={}", props.getModel());
-        return new LlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.1);
+    @Bean("glm")
+    public LlmClient glmClient(LlmProperties props) {
+        // TODO: 替换为 GLM 的真实 baseUrl + model 后，使用独立的 api-key
+        log.info("[LLM] glm (暂用 DeepSeek): baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
+        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
+    }
+
+    @Bean("qwen")
+    public LlmClient qwenClient(LlmProperties props) {
+        // TODO: 替换为 Qwen 的真实 baseUrl + model 后，使用独立的 api-key
+        log.info("[LLM] qwen (暂用 DeepSeek): baseUrl={}, model={}", props.getBaseUrl(), props.getModel());
+        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
     }
 }

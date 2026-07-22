@@ -13,7 +13,7 @@ import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.llm.ResilientLlmClient;
 import io.github.accontra.eval.infrastructure.mapper.*;
 import io.github.accontra.eval.infrastructure.rag.EmbeddingService;
-import io.github.accontra.eval.infrastructure.rag.VectorIndexService;
+import io.github.accontra.eval.infrastructure.rag.QdrantVectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -53,7 +53,7 @@ public class EvaluationDomainService {
     private final EvalAiExperimentMapper experimentMapper;
     private final ResilientLlmClient resilientClient;
     private final EmbeddingService embeddingService;
-    private final VectorIndexService vectorIndexService;
+    private final QdrantVectorService vectorIndexService;
 
     public EvaluationDomainService(ModelConfigCache configCache, EvalIndexService indexService,
                                     LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
@@ -66,7 +66,7 @@ public class EvaluationDomainService {
                                     AiSummaryService summaryService, EvalAiExperimentMapper experimentMapper,
                                     ResilientLlmClient resilientClient,
                                     EmbeddingService embeddingService,
-                                    VectorIndexService vectorIndexService) {
+                                    QdrantVectorService vectorIndexService) {
         this.configCache = configCache;
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;

@@ -1,6 +1,5 @@
 package io.github.accontra.eval.application.handler;
 
-import cn.hutool.json.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.strategy.DualChannelScoringService;
@@ -9,14 +8,11 @@ import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
 import io.github.accontra.eval.infrastructure.mapper.*;
-import io.github.accontra.eval.infrastructure.rag.EmbeddingService;
-import io.github.accontra.eval.infrastructure.rag.QdrantVectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -33,21 +29,15 @@ public class SummarizeResultHandler implements Handler {
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EvalGradeMappingMapper gradeMappingMapper;
-    private final EmbeddingService embeddingService;
-    private final QdrantVectorService vectorIndexService;
 
     public SummarizeResultHandler(EvalTaskLogMapper taskLogMapper,
                                   EvalObjectLogMapper objectLogMapper,
                                   EvalIndicatorLogMapper indicatorLogMapper,
-                                  EvalGradeMappingMapper gradeMappingMapper,
-                                  EmbeddingService embeddingService,
-                                  QdrantVectorService vectorIndexService) {
+                                  EvalGradeMappingMapper gradeMappingMapper) {
         this.taskLogMapper = taskLogMapper;
         this.objectLogMapper = objectLogMapper;
         this.indicatorLogMapper = indicatorLogMapper;
         this.gradeMappingMapper = gradeMappingMapper;
-        this.embeddingService = embeddingService;
-        this.vectorIndexService = vectorIndexService;
     }
 
     @Override public String stepCode() { return "SUMMARIZE"; }
@@ -134,31 +124,6 @@ public class SummarizeResultHandler implements Handler {
                 }
 
                 indicatorLogMapper.insert(il);
-
-                // A3 RAG: 增量更新向量索引
-                if (embeddingService != null && embeddingService.isAvailable()
-                        && vectorIndexService != null && vectorIndexService.isAvailable()
-                        && il.getLlmReason() != null && !il.getLlmReason().isBlank()) {
-                    try {
-                        String text = String.format("指标:%s 名称:%s 实际值:%s 打分理由:%s",
-                                il.getIndexCode() != null ? il.getIndexCode() : "",
-                                il.getIndexName() != null ? il.getIndexName() : "",
-                                il.getDataValue() != null ? il.getDataValue() : "",
-                                il.getLlmReason());
-                        float[] vec = embeddingService.encode(text);
-                        JSONObject payload = new JSONObject();
-                        payload.set("indexCode", il.getIndexCode());
-                        payload.set("indexName", il.getIndexName());
-                        payload.set("dataValue", il.getDataValue());
-                        payload.set("llmScore", il.getLlmScore());
-                        payload.set("llmReason", il.getLlmReason());
-                        payload.set("diffLevel", il.getDiffLevel());
-                        vectorIndexService.upsert(List.of(
-                                new QdrantVectorService.Point(il.getId(), vec, payload)));
-                    } catch (Exception e) {
-                        log.debug("[RAG] 增量索引失败 indexCode={}: {}", il.getIndexCode(), e.getMessage());
-                    }
-                }
             }
         }
 

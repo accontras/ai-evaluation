@@ -58,10 +58,20 @@ public class EvaluationController {
 
     /** 多模型对比 */
     @PostMapping("/compare-models")
-    public Result<Map<String, Object>> compareModels(@RequestBody ExecuteEvaluationRequest req) {
+    public Result<Map<String, Object>> compareModels(
+            @RequestBody ExecuteEvaluationRequest req,
+            @RequestParam(defaultValue = "3") int repeat) {
         var ctx = domainService.execute(req.sceneCode(), req.bizId(), req.dataPeriod(), req.data());
-        var result = domainService.compareModels(ctx);
-        return Result.ok(Map.of("bizId", req.bizId(), "scores", result.modelScores(), "crossModelVariance", result.crossModelVariance()));
+        var result = domainService.compareModels(ctx, repeat);
+        return Result.ok(Map.of(
+                "bizId", req.bizId(),
+                "modelScores", result.modelScores(),
+                "ruleBaseline", result.ruleBaseline(),
+                "crossModelVariance", result.crossModelVariance(),
+                "errors", result.errors(),
+                "availableModelCount", result.availableModelCount(),
+                "totalModelCount", result.totalModelCount()
+        ));
     }
 
     /** 双通道对比统计 */

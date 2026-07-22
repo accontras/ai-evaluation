@@ -93,8 +93,8 @@ public class EvaluationDomainService {
     }
 
     /** 多模型对比 */
-    public MultiModelCompareService.CompareResult compareModels(EvaluationContext ctx) {
-        return multiModelService.compare(ctx);
+    public MultiModelCompareService.CompareResult compareModels(EvaluationContext ctx, int repeat) {
+        return multiModelService.compare(ctx, repeat);
     }
 
     /** 双通道对比统计 */

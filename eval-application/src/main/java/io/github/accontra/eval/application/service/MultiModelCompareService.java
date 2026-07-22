@@ -36,16 +36,37 @@ public class MultiModelCompareService {
      */
     public CompareResult compare(EvaluationContext ctx) {
         var primary = primaryScoring.scoreAll(ctx);
-        Map<String, BigDecimal> primaryMap = new LinkedHashMap<>();
-        primary.forEach((k, v) -> primaryMap.put(k, v.score()));
 
-        Map<String, Map<String, BigDecimal>> allScores = new LinkedHashMap<>();
-        allScores.put("deepseek", primaryMap);
+        Map<String, IndicatorStats> indicators = new LinkedHashMap<>();
+        primary.forEach((k, v) -> indicators.put(k, new IndicatorStats(
+                k, v.score(), null, new BigDecimal[]{v.score()}, null)));
 
-        log.info("[MultiModel] 对比完成: {}指标", primaryMap.size());
-        return new CompareResult(allScores, Map.of());
+        Map<String, ModelScoreSet> modelScores = new LinkedHashMap<>();
+        modelScores.put("deepseek", new ModelScoreSet(indicators, "deepseek"));
+
+        log.info("[MultiModel] 对比完成: {}指标", indicators.size());
+        return new CompareResult(modelScores, Map.of(), Map.of(), Map.of(), 1, 1);
     }
 
-    public record CompareResult(Map<String, Map<String, BigDecimal>> modelScores,
-                                 Map<String, Double> stdDevs) {}
+    public record CompareResult(
+        Map<String, ModelScoreSet> modelScores,
+        Map<String, Double> ruleBaseline,
+        Map<String, Double> crossModelVariance,
+        Map<String, String> errors,
+        int availableModelCount,
+        int totalModelCount
+    ) {}
+
+    public record ModelScoreSet(
+        Map<String, IndicatorStats> indicators,
+        String model
+    ) {}
+
+    public record IndicatorStats(
+        String indexCode,
+        BigDecimal meanScore,
+        Double stdDev,
+        BigDecimal[] rawScores,
+        Double deviationFromRule
+    ) {}
 }

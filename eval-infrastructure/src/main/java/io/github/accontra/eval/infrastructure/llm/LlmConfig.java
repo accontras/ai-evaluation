@@ -8,7 +8,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 public class LlmConfig {
@@ -41,6 +43,20 @@ public class LlmConfig {
                 retries, threshold, tokenBudget);
 
         return new ResilientLlmClient(primary, fallbackClients, retries, threshold, halfOpenMs, tokenBudget);
+    }
+
+    @Bean("compareClients")
+    public Map<String, LlmClient> compareClients(LlmProperties props) {
+        Map<String, LlmClient> map = new LinkedHashMap<>();
+        var ep = props.effectivePrimary();
+        map.put(ep.getModel(), new OpenAiCompatibleLlmClient(
+                ep.getBaseUrl(), ep.getApiKey(), ep.getModel(), ep.getTemperature()));
+        for (var fc : props.getFallbacks()) {
+            map.put(fc.getModel(), new OpenAiCompatibleLlmClient(
+                    fc.getBaseUrl(), fc.getApiKey(), fc.getModel(), fc.getTemperature()));
+        }
+        log.info("[LLM] CompareClients: models={}", map.keySet());
+        return map;
     }
 
     private LlmClient newClient(LlmProperties.ModelConfig cfg) {

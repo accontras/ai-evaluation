@@ -61,7 +61,7 @@ public class EvaluationController {
     public Result<Map<String, Object>> compareModels(@RequestBody ExecuteEvaluationRequest req) {
         var ctx = domainService.execute(req.sceneCode(), req.bizId(), req.dataPeriod(), req.data());
         var result = domainService.compareModels(ctx);
-        return Result.ok(Map.of("bizId", req.bizId(), "scores", result.modelScores(), "stdDevs", result.stdDevs()));
+        return Result.ok(Map.of("bizId", req.bizId(), "scores", result.modelScores(), "crossModelVariance", result.crossModelVariance()));
     }
 
     /** 双通道对比统计 */

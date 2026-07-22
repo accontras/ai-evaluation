@@ -25,4 +25,4 @@ application-default.yml
 data/
 
 # RAG large model files (> 50MB — download separately)
-eval-infrastructure/src/main/resources/rag/model.onnx
+# model.onnx — download from https://huggingface.co/BAAI/bge-small-zh-v1.5

@@ -19,7 +19,7 @@ Thumbs.db
 
 # Env (don't commit API keys)
 .env
-application-local.yml
+application-default.yml
 
 # RAG runtime data
 data/

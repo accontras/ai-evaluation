@@ -2,36 +2,14 @@ spring:
   application:
     name: eval-system
   profiles:
-    active: dev
+    active: develop,default
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
 
----
-spring:
-  config:
-    activate:
-      on-profile: dev
-  datasource:
-    url: jdbc:mysql://localhost:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 2396308dqf
-    driver-class-name: com.mysql.cj.jdbc.Driver
-# RabbitMQ + Redis 后面 S20/S25 再配，先注释
-#  rabbitmq:
-#    host: localhost
-#    port: 5672
-#    username: guest
-#    password: guest
-#  data:
-#    redis:
-#      host: localhost
-#      port: 6379
-
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
@@ -45,51 +23,3 @@ management:
     web:
       exposure:
         include: health,info
-
-llm:
-  primary:
-    provider: deepseek
-    api-key: ${DEEPSEEK_API_KEY:sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
-    base-url: https://api.deepseek.com
-    model: deepseek-chat
-    temperature: 0.3
-  fallbacks:
-    - provider: glm
-      api-key: ${GLM_API_KEY:b5c808855df04b42b5e58a2ea92d6d65.O62WtUUrTkKGduYC}
-      base-url: https://open.bigmodel.cn/api/paas/v4
-      model: glm-4.5-air
-      temperature: 0.3
-  retry:
-    max-retries: 1
-  circuit:
-    threshold: 5
-    half-open-ms: 30000
-  token-budget:
-    max-per-eval: 8000
-
----
-spring:
-  config:
-    activate:
-      on-profile: rag-eval
-  main:
-    web-application-type: none
-  datasource:
-    url: jdbc:mysql://localhost:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 2396308dqf
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-mybatis-plus:
-  configuration:
-    map-underscore-to-camel-case: true
-  global-config:
-    db-config:
-      id-type: assign_id
-      logic-delete-field: enabled
-      logic-delete-value: 0
-      logic-not-delete-value: 1
-
-logging:
-  level:
-    io.github.accontra.eval: INFO

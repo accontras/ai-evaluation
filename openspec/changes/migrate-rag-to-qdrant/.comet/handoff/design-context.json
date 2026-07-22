@@ -1,0 +1,13 @@
+{
+  "change": "migrate-rag-to-qdrant",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "d8c3fbe689e136d8798818ec6a88ff56e4108ca657feef746dab6bb7c1f89d44",
+  "files": [
+    { "path": "openspec/changes/migrate-rag-to-qdrant/proposal.md", "sha256": "4cc94e7dcf1f573a98197b05f50beaf5538148d1b86c35f4ed79714ebd95575c" },
+    { "path": "openspec/changes/migrate-rag-to-qdrant/design.md", "sha256": "f67f612bef542c7fafa70c47be911221eaa54ed621d14ebb3b372de4cebb1f00" },
+    { "path": "openspec/changes/migrate-rag-to-qdrant/tasks.md", "sha256": "949ae48d0db02cbd7a366a858a05028598557213e1ef7c622c3bae1a7365043d" }
+  ]
+}

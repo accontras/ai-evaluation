@@ -1,0 +1,137 @@
+[
+  {
+    "id": "gt-001",
+    "annotator": "ai",
+    "indexCode": "COST_DEV",
+    "indexName": "成本偏差",
+    "dataValue": "17",
+    "relevantLogIds": [40, 55, 112, 127],
+    "notes": "17%偏差，预期命中其他15-20%的COST_DEV记录(NOTABLE)"
+  },
+  {
+    "id": "gt-002",
+    "annotator": "ai",
+    "indexCode": "FILL_RATE",
+    "indexName": "填充率",
+    "dataValue": "88",
+    "relevantLogIds": [117, 135, 120, 138],
+    "notes": "88%填充率，预期命中85-92%范围的NOTABLE记录"
+  },
+  {
+    "id": "gt-003",
+    "annotator": "ai",
+    "indexCode": "ABNORM_CNT",
+    "indexName": "异常数量",
+    "dataValue": "1",
+    "relevantLogIds": [35, 71, 83, 113],
+    "notes": "1个异常，预期命中同样1异常的SIGNIFICANT记录(85-90分)"
+  },
+  {
+    "id": "gt-004",
+    "annotator": "ai",
+    "indexCode": "FILL_RATE",
+    "indexName": "填充率",
+    "dataValue": "95",
+    "relevantLogIds": [78, 156, 162, 168],
+    "notes": "95%高填充率，预期命中TRIVIAL记录(95分)"
+  },
+  {
+    "id": "gt-005",
+    "annotator": "ai",
+    "indexCode": "ABNORM_CNT",
+    "indexName": "异常数量",
+    "dataValue": "0",
+    "relevantLogIds": [32, 62, 77, 116],
+    "notes": "0异常(完美)，预期命中100分SIGNIFICANT记录(LLM给了100但规则引擎给了0)"
+  },
+  {
+    "id": "gt-006",
+    "annotator": "ai",
+    "indexCode": "COST_DEV",
+    "indexName": "成本偏差",
+    "dataValue": "20",
+    "relevantLogIds": [55, 112, 127, 40],
+    "notes": "20%偏差，预期命中15-20%范围的NOTABLE COST_DEV记录"
+  },
+  {
+    "id": "gt-007",
+    "annotator": "ai",
+    "indexCode": "FILL_RATE",
+    "indexName": "填充率",
+    "dataValue": "82",
+    "relevantLogIds": [54, 99, 84, 102],
+    "notes": "82%偏低填充率，预期命中80-90%的NOTABLE记录"
+  },
+  {
+    "id": "gt-008",
+    "annotator": "ai",
+    "indexCode": "ABNORM_CNT",
+    "indexName": "异常数量",
+    "dataValue": "2",
+    "relevantLogIds": [86, 104, 128, 134],
+    "notes": "2个异常，预期命中2异常的SIGNIFICANT记录(80-85分)"
+  },
+  {
+    "id": "gt-009",
+    "annotator": "ai",
+    "indexCode": "COST_DEV",
+    "indexName": "成本偏差",
+    "dataValue": "0",
+    "relevantLogIds": [],
+    "notes": "边界：零偏差。NULL值的COST_DEV记录与0偏差语义不同，预期无高相关"
+  },
+  {
+    "id": "gt-010",
+    "annotator": "ai",
+    "indexCode": "FILL_RATE",
+    "indexName": "填充率",
+    "dataValue": "999",
+    "relevantLogIds": [],
+    "notes": "边界：极端高值。无真实数据对应，预期向量检索无高相关结果"
+  },
+  {
+    "id": "gt-011",
+    "annotator": "ai",
+    "indexCode": "ABNORM_CNT",
+    "indexName": "异常数量",
+    "dataValue": "无数据",
+    "relevantLogIds": [],
+    "notes": "边界：无数据值。预期向量检索基于指标名匹配 + 规则检索基于index_code匹配"
+  },
+  {
+    "id": "gt-012",
+    "annotator": "ai",
+    "indexCode": "NEW_METRIC_RARE",
+    "indexName": "稀有指标",
+    "dataValue": "50",
+    "relevantLogIds": [],
+    "notes": "边界：历史数据中不存在此指标，预期向量检索仅靠名称语义匹配(无匹配则空)"
+  },
+  {
+    "id": "gt-013",
+    "annotator": "ai",
+    "indexCode": "COST_DEV",
+    "indexName": "成本偏差",
+    "dataValue": "-5",
+    "relevantLogIds": [],
+    "notes": "边界：负值偏差。无真实数据对应"
+  },
+  {
+    "id": "gt-014",
+    "annotator": "ai",
+    "indexCode": "FILL_RATE",
+    "indexName": "填充率",
+    "dataValue": "100",
+    "relevantLogIds": [78, 156, 162, 168],
+    "notes": "完美值100%，最接近95%的TRIVIAL记录"
+  },
+  {
+    "id": "gt-015",
+    "annotator": "ai",
+    "indexCode": "ABNORM_CNT",
+    "indexName": "异常数量",
+    "dataValue": "5",
+    "relevantLogIds": [86, 104, 128],
+    "notes": "高异常值，预期命中2异常的SIGNIFICANT记录(语义上最接近的高异常案例)"
+  }
+]

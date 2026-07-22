@@ -1,5 +1,6 @@
 package io.github.accontra.eval.infrastructure.rag;
 
+import cn.hutool.json.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.infrastructure.mapper.EvalIndicatorLogMapper;
@@ -8,11 +9,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * A3 RAG: 历史数据迁移 — 启动时将 eval_indicator_log 批量向量化建索引。
- *
- * 只在索引为空时执行全量迁移；已有数据时跳过。
- * 迁移在后台异步执行，不阻塞应用启动。
+ * A3 RAG: 历史数据迁移 — 启动时将 eval_indicator_log 批量向量化迁入 Qdrant。
  */
 @Component
 public class RagIndexInitializer implements CommandLineRunner {
@@ -21,35 +22,28 @@ public class RagIndexInitializer implements CommandLineRunner {
 
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EmbeddingService embeddingService;
-    private final VectorIndexService vectorIndexService;
+    private final QdrantVectorService qdrantVectorService;
 
     public RagIndexInitializer(EvalIndicatorLogMapper indicatorLogMapper,
                                EmbeddingService embeddingService,
-                               VectorIndexService vectorIndexService) {
+                               QdrantVectorService qdrantVectorService) {
         this.indicatorLogMapper = indicatorLogMapper;
         this.embeddingService = embeddingService;
-        this.vectorIndexService = vectorIndexService;
+        this.qdrantVectorService = qdrantVectorService;
     }
 
     @Override
     public void run(String... args) {
-        if (!embeddingService.isAvailable() || !vectorIndexService.isAvailable()) {
+        if (!embeddingService.isAvailable() || !qdrantVectorService.isAvailable()) {
             log.info("[RAG] 服务不可用, 跳过索引迁移");
             return;
         }
-
-        // 已有索引数据则跳过全量迁移
-        if (vectorIndexService.docCount() > 0) {
-            log.info("[RAG] 索引已有 {} 条数据, 跳过全量迁移", vectorIndexService.docCount());
-            return;
-        }
-
-        // 异步执行, 不阻塞启动
+        // Qdrant: 每次启动全量重迁 (upsert 幂等)
         new Thread(this::migrate, "rag-index-migrate").start();
     }
 
     private void migrate() {
-        log.info("[RAG] 开始历史数据迁移...");
+        log.info("[RAG] 开始历史数据迁移到 Qdrant...");
         long start = System.currentTimeMillis();
         long total = 0;
 
@@ -61,6 +55,7 @@ public class RagIndexInitializer implements CommandLineRunner {
 
             int batchSize = 50;
             long offset = 0;
+            List<QdrantVectorService.Point> batch = new ArrayList<>();
 
             while (true) {
                 var page = indicatorLogMapper.selectList(
@@ -75,9 +70,16 @@ public class RagIndexInitializer implements CommandLineRunner {
                                 logEntry.getDataValue() != null ? logEntry.getDataValue() : "",
                                 logEntry.getLlmReason() != null ? logEntry.getLlmReason() : "");
                         float[] vec = embeddingService.encode(text);
-                        vectorIndexService.addDocument(logEntry.getId(), vec,
-                                logEntry.getIndexCode(), logEntry.getIndexName(),
-                                logEntry.getDataValue(), logEntry.getLlmReason());
+
+                        JSONObject payload = new JSONObject();
+                        payload.set("indexCode", logEntry.getIndexCode());
+                        payload.set("indexName", logEntry.getIndexName());
+                        payload.set("dataValue", logEntry.getDataValue());
+                        payload.set("llmScore", logEntry.getLlmScore());
+                        payload.set("llmReason", logEntry.getLlmReason());
+                        payload.set("diffLevel", logEntry.getDiffLevel());
+
+                        batch.add(new QdrantVectorService.Point(logEntry.getId(), vec, payload));
                         total++;
                     } catch (Exception e) {
                         log.warn("[RAG] 迁移失败 id={}: {}", logEntry.getId(), e.getMessage());
@@ -85,11 +87,15 @@ public class RagIndexInitializer implements CommandLineRunner {
                 }
                 offset += batchSize;
             }
+            // 批量写入
+            if (!batch.isEmpty()) {
+                qdrantVectorService.upsert(batch);
+            }
         } catch (Exception e) {
             log.error("[RAG] 迁移中断", e);
         }
 
         long elapsed = System.currentTimeMillis() - start;
-        log.info("[RAG] 历史数据迁移完成: {} 条, 耗时={}ms", total, elapsed);
+        log.info("[RAG] 历史数据迁移到 Qdrant 完成: {} 条, 耗时={}ms", total, elapsed);
     }
 }

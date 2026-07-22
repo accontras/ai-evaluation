@@ -34,8 +34,14 @@ mysql -u root -e "CREATE DATABASE eval_db"
 mysql -u root eval_db < docs/sql/V003__clean_schema.sql
 mysql -u root eval_db < docs/sql/V004__seed_data.sql
 
-# 2. 配置 LLM API Key
-export LLM_API_KEY=sk-your-deepseek-key
+# 2. 配置 API Key
+# 方式A: 环境变量 (CI/他人)
+export DEEPSEEK_API_KEY=sk-your-key
+export GLM_API_KEY=your-glm-key
+export DB_PASSWORD=your-db-password
+
+# 方式B: 本地开发 (创建 application-default.yml, 已 gitignore)
+# 复制密钥到 eval-boot/src/main/resources/application-default.yml
 
 # 3. 构建 + 启动
 bash restart.sh

@@ -53,7 +53,7 @@ class EndToEndTest {
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
         var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,
                 new EventRuleEvaluator(), new LlmEventDetector(llmClient));
-        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper, gradeMappingMapper, null, null);
+        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper, gradeMappingMapper);
 
         var pipeline = new ConfigurablePipeline(List.of(h1, h2, h3, h4, h6));
 

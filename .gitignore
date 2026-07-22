@@ -26,3 +26,7 @@ data/
 
 # RAG large model files (> 50MB — download separately)
 eval-infrastructure/src/main/resources/rag/model.onnx
+
+# Qdrant runtime data
+storage/
+.qdrant-initialized

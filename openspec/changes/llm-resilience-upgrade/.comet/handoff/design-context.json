@@ -1,0 +1,14 @@
+{
+  "change": "llm-resilience-upgrade",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "0b79a58637a882ea74b81cc5277ef066ddb62f5973dbc1df21efdc1a7d9d7bd6",
+  "files": [
+    { "path": "openspec/changes/llm-resilience-upgrade/proposal.md", "sha256": "dca2e83fac22d2599af33fdef08abef7e93065a6b60b82a8c2d70e2d55ef3d68" },
+    { "path": "openspec/changes/llm-resilience-upgrade/design.md", "sha256": "04c2564883216f52f930c2631e0ae8aec8b2d64c75f35a667a239cc988c3388f" },
+    { "path": "openspec/changes/llm-resilience-upgrade/tasks.md", "sha256": "a4f2bd5438f7ef1191cc6c1c57de0024becd39cee8d508b13d96f25006b7160c" },
+    { "path": "openspec/changes/llm-resilience-upgrade/specs/llm-resilience/spec.md", "sha256": "af5e27039dbe98a99a7ca0d21e70bed4a06f74120e05e01239c8640d3847d3c0" }
+  ]
+}

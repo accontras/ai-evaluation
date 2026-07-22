@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -18,28 +19,32 @@ public class LlmConfig {
     @ConfigurationProperties(prefix = "llm")
     public LlmProperties llmProperties() { return new LlmProperties(); }
 
-    @Bean("deepseek")
-    public LlmClient deepseekClient(LlmProperties props) {
-        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-    }
-
-    @Bean("glm")
-    public LlmClient glmClient(LlmProperties props) {
-        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-    }
-
-    @Bean("qwen")
-    public LlmClient qwenClient(LlmProperties props) {
-        return new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-    }
-
     @Bean
     @Primary
     public ResilientLlmClient resilientLlmClient(LlmProperties props) {
-        var primary = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-        var glm = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-        var qwen = new OpenAiCompatibleLlmClient(props.getBaseUrl(), props.getApiKey(), props.getModel(), 0.3);
-        log.info("[LLM] ResilientClient: primary={}, fallbacks=[glm,qwen], retries=1, circuitThreshold=5", props.getModel());
-        return new ResilientLlmClient(primary, List.of(glm, qwen), 1, 5);
+        var ep = props.effectivePrimary();
+        var primary = newClient(ep);
+
+        List<LlmClient> fallbackClients = new ArrayList<>();
+        for (var fc : props.getFallbacks()) {
+            fallbackClients.add(newClient(fc));
+        }
+
+        int retries = props.getRetry().getMaxRetries();
+        int threshold = props.getCircuit().getThreshold();
+        long halfOpenMs = props.getCircuit().getHalfOpenMs();
+        int tokenBudget = props.getTokenBudget().getMaxPerEval();
+
+        log.info("[LLM] ResilientClient: primary={}, fallbacks={}, retries={}, threshold={}, budget={}",
+                ep.getModel(),
+                props.getFallbacks().stream().map(LlmProperties.ModelConfig::getModel).toList(),
+                retries, threshold, tokenBudget);
+
+        return new ResilientLlmClient(primary, fallbackClients, retries, threshold, halfOpenMs, tokenBudget);
+    }
+
+    private LlmClient newClient(LlmProperties.ModelConfig cfg) {
+        return new OpenAiCompatibleLlmClient(
+                cfg.getBaseUrl(), cfg.getApiKey(), cfg.getModel(), cfg.getTemperature());
     }
 }

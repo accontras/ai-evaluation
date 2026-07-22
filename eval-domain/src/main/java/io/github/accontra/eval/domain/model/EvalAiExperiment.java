@@ -25,6 +25,7 @@ public class EvalAiExperiment {
     private String errorType;
     private Integer retryCount;
     private BigDecimal cost;
+    private String degradationLevel;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
@@ -64,6 +65,8 @@ public class EvalAiExperiment {
     public void setRetryCount(Integer v) { retryCount = v; }
     public BigDecimal getCost() { return cost; }
     public void setCost(BigDecimal v) { cost = v; }
+    public String getDegradationLevel() { return degradationLevel; }
+    public void setDegradationLevel(String v) { degradationLevel = v; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime v) { createdAt = v; }
 }

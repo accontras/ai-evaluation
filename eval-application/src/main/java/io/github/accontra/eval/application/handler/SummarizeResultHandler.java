@@ -8,8 +8,6 @@ import io.github.accontra.eval.domain.model.EvalIndicatorLog;
 import io.github.accontra.eval.domain.model.EvalObjectLog;
 import io.github.accontra.eval.domain.model.EvalTaskLog;
 import io.github.accontra.eval.infrastructure.mapper.*;
-import io.github.accontra.eval.infrastructure.rag.EmbeddingService;
-import io.github.accontra.eval.infrastructure.rag.VectorIndexService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,21 +29,15 @@ public class SummarizeResultHandler implements Handler {
     private final EvalObjectLogMapper objectLogMapper;
     private final EvalIndicatorLogMapper indicatorLogMapper;
     private final EvalGradeMappingMapper gradeMappingMapper;
-    private final EmbeddingService embeddingService;
-    private final VectorIndexService vectorIndexService;
 
     public SummarizeResultHandler(EvalTaskLogMapper taskLogMapper,
                                   EvalObjectLogMapper objectLogMapper,
                                   EvalIndicatorLogMapper indicatorLogMapper,
-                                  EvalGradeMappingMapper gradeMappingMapper,
-                                  EmbeddingService embeddingService,
-                                  VectorIndexService vectorIndexService) {
+                                  EvalGradeMappingMapper gradeMappingMapper) {
         this.taskLogMapper = taskLogMapper;
         this.objectLogMapper = objectLogMapper;
         this.indicatorLogMapper = indicatorLogMapper;
         this.gradeMappingMapper = gradeMappingMapper;
-        this.embeddingService = embeddingService;
-        this.vectorIndexService = vectorIndexService;
     }
 
     @Override public String stepCode() { return "SUMMARIZE"; }
@@ -132,25 +124,6 @@ public class SummarizeResultHandler implements Handler {
                 }
 
                 indicatorLogMapper.insert(il);
-
-                // A3 RAG: 增量更新向量索引
-                if (embeddingService != null && embeddingService.isAvailable()
-                        && vectorIndexService != null && vectorIndexService.isAvailable()
-                        && il.getLlmReason() != null && !il.getLlmReason().isBlank()) {
-                    try {
-                        String text = String.format("指标:%s 名称:%s 实际值:%s 打分理由:%s",
-                                il.getIndexCode() != null ? il.getIndexCode() : "",
-                                il.getIndexName() != null ? il.getIndexName() : "",
-                                il.getDataValue() != null ? il.getDataValue() : "",
-                                il.getLlmReason());
-                        float[] vec = embeddingService.encode(text);
-                        vectorIndexService.addDocument(il.getId(), vec,
-                                il.getIndexCode(), il.getIndexName(),
-                                il.getDataValue(), il.getLlmReason());
-                    } catch (Exception e) {
-                        log.debug("[RAG] 增量索引失败 indexCode={}: {}", il.getIndexCode(), e.getMessage());
-                    }
-                }
             }
         }
 

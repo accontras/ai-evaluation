@@ -39,7 +39,7 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
-        <!-- A3 RAG: embedding (DJL API + ONNX) + 向量索引 (Lucene HNSW) -->
+        <!-- A3 RAG: embedding (DJL API + ONNX) + 向量存储 (Qdrant) -->
         <dependency>
             <groupId>ai.djl</groupId>
             <artifactId>api</artifactId>
@@ -54,16 +54,6 @@
             <groupId>ai.djl.huggingface</groupId>
             <artifactId>tokenizers</artifactId>
             <version>0.31.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-core</artifactId>
-            <version>9.12.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analysis-common</artifactId>
-            <version>9.12.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

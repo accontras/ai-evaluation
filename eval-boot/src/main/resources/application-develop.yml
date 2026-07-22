@@ -39,3 +39,9 @@ llm:
     half-open-ms: 30000
   token-budget:
     max-per-eval: 8000
+
+qdrant:
+  host: localhost
+  port: 6333
+  collection: eval_cases
+  vector-size: 512

@@ -22,16 +22,16 @@ public class VectorRagService {
     private static final Logger log = LoggerFactory.getLogger(VectorRagService.class);
 
     private final EmbeddingService embeddingService;
-    private final VectorIndexService vectorIndexService;
+    private final QdrantVectorService qdrantVectorService;
 
     public VectorRagService(EmbeddingService embeddingService,
-                            VectorIndexService vectorIndexService) {
+                            QdrantVectorService qdrantVectorService) {
         this.embeddingService = embeddingService;
-        this.vectorIndexService = vectorIndexService;
+        this.qdrantVectorService = qdrantVectorService;
     }
 
     public boolean isAvailable() {
-        return embeddingService.isAvailable() && vectorIndexService.isAvailable();
+        return embeddingService.isAvailable() && qdrantVectorService != null && qdrantVectorService.isAvailable();
     }
 
     /**
@@ -60,24 +60,25 @@ public class VectorRagService {
         float[] queryVec = embeddingService.encode(queryText);
         long t2 = System.currentTimeMillis();
 
-        var results = vectorIndexService.search(queryVec, k);
+        var hits = qdrantVectorService.search(queryVec, k);
         long t3 = System.currentTimeMillis();
 
-        if (!results.isEmpty()) {
+        if (!hits.isEmpty()) {
             log.debug("[RAG] encode={}ms, search={}ms, hits={}",
-                    (t2 - t1), (t3 - t2), results.size());
+                    (t2 - t1), (t3 - t2), hits.size());
         }
 
-        return results.stream()
-                .map(r -> {
+        return hits.stream()
+                .map(h -> {
+                    var payload = h.payload();
                     var logEntry = new EvalIndicatorLog();
-                    logEntry.setId(r.logId());
-                    logEntry.setIndexCode(r.indexCode());
-                    logEntry.setIndexName(r.indexName());
-                    logEntry.setDataValue(r.dataValue());
-                    logEntry.setLlmReason(r.llmReason());
-                    // 归一化相似度: DOT_PRODUCT score → 0~100
-                    double similarity = Math.max(0, Math.min(100, r.score() * 100));
+                    logEntry.setId(h.logId());
+                    logEntry.setIndexCode(payload.getStr("indexCode"));
+                    logEntry.setIndexName(payload.getStr("indexName"));
+                    logEntry.setDataValue(payload.getStr("dataValue"));
+                    logEntry.setLlmReason(payload.getStr("llmReason"));
+                    // Qdrant cosine score → 归一化 0~100
+                    double similarity = h.normalizedScore();
                     return new SimilarCase(logEntry, similarity);
                 })
                 .collect(Collectors.toList());

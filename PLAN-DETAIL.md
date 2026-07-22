@@ -324,7 +324,7 @@ totalScore: 76.67  |  riskLevel: MEDIUM
 | 项 | 值 |
 |----|-----|
 | JDK 17 | Temurin 17.0.19 `~/.jdks/temurin-17` |
-| JDK 8 | Oracle 1.8.0_77 (，不动) |
+| JDK 8 | Oracle 1.8.0_77 |
 | Spring Boot | 3.3.5 |
 | MyBatis-Plus | 3.5.7 |
 | 包名 | `io.github.accontra.eval` |

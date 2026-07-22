@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 评估系统 · eval-system</title>
+  <meta name="description" content="AI 原生评估系统：LLM 打分 + 规则引擎验证。AI 坐主桌，规则引擎当镜子。">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <style>
+    :root {
+      --theme-color: #42b983;
+      --theme-color-light: #e8f5e9;
+    }
+    .app-name-link { font-size: 1.1rem; }
+    .sidebar-nav li > a[href^="#/"] { font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div id="app">加载中...</div>
+  <script>
+    window.$docsify = {
+      name: '⚖️ AI 评估系统',
+      repo: 'https://gitee.com/accontra/ai-evaluation',
+      loadSidebar: '_sidebar.md',
+      loadNavbar: '_navbar.md',
+      subMaxLevel: 3,
+      auto2top: true,
+      search: {
+        placeholder: '搜索文档...',
+        noData: '没有找到结果',
+        paths: 'auto',
+        depth: 3,
+      },
+      formatUpdated: '{YYYY}-{MM}-{DD}',
+    }
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/zoom-image.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-java.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-sql.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+</body>
+</html>

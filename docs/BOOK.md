@@ -1,7 +1,7 @@
 # AI 评估系统 — 全书
 
 > **定位**: 系统级技术手册，从概念到实现的全链路文档。
-> **版本**: v1.0 | **日期**: 2026-07-21
+> **版本**: v1.1 | **日期**: 2026-07-22
 
 ---
 
@@ -352,6 +352,71 @@ SYSTEM_PROMPT = "..."               SELECT template_text
 - **AI 总结 Handler 必须编写** (ADR-011): MVP 阶段逻辑放空，但 Handler 占位保证架构完整。
 - **AI总结复用 ConnectionFactory** (ADR-020): 不建独立连接池——评估任务和 AI 总结共享 LLM 连接资源。
 
+### 10.6 RAG 向量检索 (A3)
+
+**核心认知**: RAG 是一整条 pipeline——embedding 选型 → chunk 策略 → 向量化存储 → 检索 → 注入 prompt → 质量评测。
+
+#### 技术选型
+
+| 组件 | 选择 | 理由 |
+|------|------|------|
+| Embedding 模型 | bge-small-zh-v1.5 (BAAI, 512维) | 中文优化、本地 ONNX 推理 (90MB)、零 API 费用 |
+| 向量存储 | Lucene 9.x KnnVectorField (HNSW) | 纯 Java、零外部依赖、Windows 兼容 |
+| 推理引擎 | ONNX Runtime Java API | 直连推理，3-5ms encode |
+
+#### Pipeline 流程
+
+```
+评估请求
+  ├─ EmbeddingService.encode(指标名+实际值+理由) → 512维向量
+  ├─ VectorIndexService.search(vector, K=5) → 相似案例 (6-11ms)
+  ├─ 向量无结果 → SimilarCaseService 规则检索降级
+  └─ 注入 LlmScoringStrategy.buildFewShot() → Prompt 的"历史参考案例"段
+```
+
+#### 检索质量评测 (A3.3，2026-07-22)
+
+**数据集**: 168 条历史日志，15 条标注查询 (10 代表性 + 5 边界)，二元相关标注。
+
+| 指标 | 通道 | K=1 | K=3 | K=5 |
+|------|------|-----|-----|-----|
+| Hit Rate@K | 向量 | 20.0% | 33.3% | 53.3% |
+| | 规则 | 26.7% | 26.7% | 26.7% |
+| NDCG@K | 向量 | 100% | 95.0% | 82.8% |
+| | 规则 | 100% | 98.9% | 98.7% |
+
+**结论**: 向量检索适合高召回、跨指标场景（HR@5 翻倍），规则检索适合精确匹配、排序稳定场景。详细实验笔记见 `wiki/research/RAG-检索质量评测-20260722.md`。
+
+### 10.7 AI 可靠性工程 (A4)
+
+#### 多模型 Fallback 链
+
+```
+DeepSeek (主) → GLM (备1) → Qwen (备2) → 降级默认 70 分
+     │              │            │              │
+     └─ 超时 120s ──┘─ 超时 60s ──┘─ 超时 60s ──┘
+```
+
+**实现**: `ResilientLlmClient` 封装 fallback 逻辑，链顺序通过 `application.yml` 配置。
+
+#### 降级策略分层
+
+| 级别 | 触发条件 | 行为 |
+|------|---------|------|
+| Level 1 | 主模型超时/限流 | 自动切备选模型 |
+| Level 2 | 全部模型不可用 | 用规则引擎分数替代 LLM 分数 |
+| Level 3 | 规则引擎也无结果 | 返回默认 70 分 + DEGRADED 标记 |
+
+#### 熔断机制
+
+- `AiCallGuard`: 连续 5 次失败 → 熔断 60s → 半开探测 → 恢复或继续熔断
+- API: `GET /api/v1/evaluation/resilience` — 实时查询韧性状态
+
+#### 关键设计
+
+- `LlmProperties` / `LlmConfig`: 配置结构化——超时、重试、熔断阈值统一管理
+- `ResilientLlmClientTest`: 6 用例覆盖正常/超时/fallback/熔断路径
+
 ---
 
 # 第三部分：数据模型
@@ -476,6 +541,9 @@ Mapper            ← 数据访问: MyBatis-Plus BaseMapper
 | JEXL | 3.3 | 表达式引擎 |
 | Caffeine | (via Spring Cache) | 本地缓存 TTL 5min |
 | DeepSeek API | deepseek-chat | LLM 评分/检测/总结 |
+| ONNX Runtime | 1.18 (Java API) | Embedding 本地推理 (A3) |
+| Lucene | 9.x (KnnVectorField) | 向量索引 HNSW (A3) |
+| OkHttp | 4.12 | HTTP 客户端 (LlmClient) |
 | Chart.js | 4.4 CDN | Dashboard 图表 |
 
 ---
@@ -537,7 +605,7 @@ Mapper            ← 数据访问: MyBatis-Plus BaseMapper
 
 | 类别 | 位置 |
 |------|------|
-| 系统全书 | `docs/BOOK.md` (本文档) |
+| 系统全书 | `docs/BOOK.md` (本文档) — 16章 + RAG/可靠性 |
 | AI 功能实现 | `docs/AI-IMPLEMENTATION.md` |
 | LLM 打分设计 | `docs/design/LLM-SCORING-DESIGN.md` |
 | 核心架构 | `docs/design/ai-evaluation-system-architecture.md` |
@@ -549,6 +617,9 @@ Mapper            ← 数据访问: MyBatis-Plus BaseMapper
 | 执行明细 | `PLAN-DETAIL.md` |
 | SQL 迁移 | `docs/sql/V001~V008` |
 | 前端 Dashboard | `eval-boot/src/main/resources/static/index.html` |
+| RAG 检索评测 | `wiki/research/RAG-检索质量评测-20260722.md` |
+| RAG 基础知识 | `wiki/ai/RAG-基础知识-从零到懂.md` |
+| RAG 落地指南 | `wiki/ai/RAG-落地实践指南.md` |
 
 ## B. 版本历史
 
@@ -556,6 +627,11 @@ Mapper            ← 数据访问: MyBatis-Plus BaseMapper
 |------|------|------|
 | 2026-07-20 | v0.1.0-m1 | M1: LLM 先打分 |
 | 2026-07-20 | v0.2.0-m2 | M2: 双通道对比系统 |
-| 2026-07-20 | v0.3.0-m3 | M3: 完整系统 |
-| 2026-07-21 | — | A1: Prompt 工程 v2+v3 |
-| 2026-07-21 | — | A2: LLM 可观测性 |
+| 2026-07-20 | v0.3.0-m3 | M3: 完整系统（Stage树/事件/排名/总结/方案管理） |
+| 2026-07-21 | — | A1.2: Prompt 版本化管理 (v1-base/v2-standards/v3-fewshot) |
+| 2026-07-21 | — | A2: LLM 可观测性 (eval_ai_experiment 全链路追踪) |
+| 2026-07-21 | — | A3.1/A3.2: RAG 向量检索 + few-shot 注入 (bge-small + Lucene HNSW) |
+| 2026-07-21 | — | A4: AI 可靠性工程 (ResilientLlmClient 熔断/重试/fallback) |
+| 2026-07-21 | v1.0.0 | 正式发布 (README + CHANGELOG + Docker + restart.sh) |
+| 2026-07-22 | — | A3.3: RAG 检索质量评测 (15条标注，向量 vs 规则 HR@K + NDCG@K) |
+| 2026-07-22 | v1.1 | BOOK.md v1.1: 新增第10章 RAG + 可靠性, 技术栈更新 |

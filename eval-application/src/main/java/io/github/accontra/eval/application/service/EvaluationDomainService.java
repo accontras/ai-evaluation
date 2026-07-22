@@ -12,8 +12,6 @@ import io.github.accontra.eval.domain.service.EvalIndexService;
 import io.github.accontra.eval.infrastructure.llm.LlmClient;
 import io.github.accontra.eval.infrastructure.llm.ResilientLlmClient;
 import io.github.accontra.eval.infrastructure.mapper.*;
-import io.github.accontra.eval.infrastructure.rag.EmbeddingService;
-import io.github.accontra.eval.infrastructure.rag.QdrantVectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -52,8 +50,6 @@ public class EvaluationDomainService {
     private final AiSummaryService summaryService;
     private final EvalAiExperimentMapper experimentMapper;
     private final ResilientLlmClient resilientClient;
-    private final EmbeddingService embeddingService;
-    private final QdrantVectorService vectorIndexService;
 
     public EvaluationDomainService(ModelConfigCache configCache, EvalIndexService indexService,
                                     LlmScoringStrategy llmStrategy, RuleScoreStrategy ruleStrategy,
@@ -64,9 +60,7 @@ public class EvaluationDomainService {
                                     EvalGradeMappingMapper gradeMappingMapper,
                                     RankingService rankingService, MultiModelCompareService multiModelService,
                                     AiSummaryService summaryService, EvalAiExperimentMapper experimentMapper,
-                                    ResilientLlmClient resilientClient,
-                                    EmbeddingService embeddingService,
-                                    QdrantVectorService vectorIndexService) {
+                                    ResilientLlmClient resilientClient) {
         this.configCache = configCache;
         this.indexService = indexService;
         this.llmStrategy = llmStrategy;
@@ -84,8 +78,6 @@ public class EvaluationDomainService {
         this.summaryService = summaryService;
         this.experimentMapper = experimentMapper;
         this.resilientClient = resilientClient;
-        this.embeddingService = embeddingService;
-        this.vectorIndexService = vectorIndexService;
     }
 
     /** 执行单对象评估 */
@@ -137,7 +129,7 @@ public class EvaluationDomainService {
         var h3 = new LlmCalculateScoresHandler(llmStrategy, ruleStrategy, dualChannel);
         var h4 = new EventRedLineHandler(modelEventMapper, eventLogMapper,
                 new EventRuleEvaluator(), new LlmEventDetector(llmClient));
-        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper, gradeMappingMapper, embeddingService, vectorIndexService);
+        var h6 = new SummarizeResultHandler(taskLogMapper, objectLogMapper, indicatorLogMapper, gradeMappingMapper);
         return new ConfigurablePipeline(List.of(h1, h2, h3, h4, h6));
     }
 }

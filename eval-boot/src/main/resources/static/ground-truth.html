@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ground Truth 标注编辑器 — AI 评估系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.header{background:#1e293b;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155}
+.header h1{font-size:20px;color:#38bdf8}
+.header a{color:#94a3b8;text-decoration:none;font-size:13px}
+.header a:hover{color:#38bdf8}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.stats-bar{display:flex;gap:16px;margin-bottom:20px}
+.stat{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px 24px;text-align:center}
+.stat .num{font-size:28px;font-weight:bold}
+.stat .num.ai{color:#38bdf8}
+.stat .num.human{color:#22c55e}
+.stat .lbl{font-size:12px;color:#94a3b8;margin-top:4px}
+.panel{background:#1e293b;border-radius:12px;padding:20px;border:1px solid #334155}
+.panel h2{font-size:16px;color:#94a3b8;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;color:#94a3b8;border-bottom:2px solid #334155;font-weight:600}
+td{padding:10px 12px;border-bottom:1px solid #1e293b}
+tr{cursor:pointer;transition:background .15s}
+tr:hover{background:#0f172a}
+tr.selected{background:#1e3a5f;outline:1px solid #38bdf8}
+.tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600}
+.tag-ai{background:#1e3a5f;color:#38bdf8}
+.tag-human{background:#14532d;color:#22c55e}
+.rel-count{font-size:12px;color:#94a3b8}
+.rel-count.has{color:#38bdf8;font-weight:600}
+.notes-cell{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#94a3b8;font-size:12px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;width:560px;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:18px;color:#38bdf8;margin-bottom:20px}
+.form-row{display:flex;gap:12px;margin-bottom:14px}
+.form-group{flex:1}
+.form-group label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:14px;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#38bdf8}
+.form-group textarea{resize:vertical;min-height:60px}
+.id-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.id-tag{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:3px 8px;font-size:12px;display:flex;align-items:center;gap:4px;color:#e2e8f0}
+.id-tag .remove{color:#ef4444;cursor:pointer;font-weight:bold;font-size:14px}
+.id-tag .remove:hover{color:#f87171}
+.id-add{display:flex;gap:6px;margin-top:6px}
+.id-add input{flex:1;padding:6px 10px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:13px}
+.btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#38bdf8;color:#0f172a}
+.btn-primary:hover{background:#7dd3fc}
+.btn-green{background:#22c55e;color:#0f172a}
+.btn-green:hover{background:#4ade80}
+.btn-ghost{background:transparent;border:1px solid #334155;color:#94a3b8}
+.btn-ghost:hover{border-color:#38bdf8;color:#e2e8f0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid #334155}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 24px;border-radius:10px;font-size:14px;z-index:200;animation:fadeIn .3s}
+.toast-ok{background:#22c55e;color:#0f172a}
+.toast-err{background:#ef4444;color:#fff}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.empty{text-align:center;padding:40px;color:#64748b}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 Ground Truth 标注编辑器</h1>
+  <a href="/">← Dashboard</a>
+</div>
+
+<div class="container">
+  <div class="stats-bar" id="stats"></div>
+
+  <div class="panel">
+    <h2>标注列表（点击行编辑）</h2>
+    <div id="table-wrap"><div class="empty">加载中...</div></div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">编辑标注</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>标注者</label>
+        <select id="edit-annotator">
+          <option value="ai">🤖 AI</option>
+          <option value="human">👤 人工</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>指标编码</label>
+        <input id="edit-indexCode" readonly style="opacity:0.6">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>指标名称</label>
+        <input id="edit-indexName" readonly style="opacity:0.6">
+      </div>
+      <div class="form-group">
+        <label>实际值</label>
+        <input id="edit-dataValue" readonly style="opacity:0.6">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>相关案例 ID（relevantLogIds）</label>
+      <div class="id-tags" id="edit-rel-tags"></div>
+      <div class="id-add">
+        <input id="edit-rel-input" type="number" placeholder="输入 log ID，回车添加">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>备注</label>
+      <textarea id="edit-notes" placeholder="标注理由..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEntry()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+
+let allEntries = [];
+let editingId = null;
+let currentRelIds = [];
+
+async function load() {
+  try {
+    const r = await fetch(API + '/evaluation/ground-truth');
+    const d = await r.json();
+    if (d.code !== '00000') { showToast('加载失败: ' + d.message, 'err'); return; }
+    allEntries = d.data;
+    renderStats();
+    renderTable();
+  } catch (e) { showToast('网络错误', 'err'); }
+}
+
+function renderStats() {
+  const aiCount = allEntries.filter(e => e.annotator === 'ai').length;
+  const humanCount = allEntries.filter(e => e.annotator === 'human').length;
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><div class="num ai">${aiCount}</div><div class="lbl">🤖 AI 标注</div></div>
+     <div class="stat"><div class="num human">${humanCount}</div><div class="lbl">👤 人工标注</div></div>
+     <div class="stat"><div class="num" style="color:#94a3b8">${allEntries.length}</div><div class="lbl">📊 总计</div></div>`;
+}
+
+function renderTable() {
+  const wrap = document.getElementById('table-wrap');
+  if (!allEntries.length) { wrap.innerHTML = '<div class="empty">暂无标注数据</div>'; return; }
+
+  let html = '<table><thead><tr>' +
+    '<th>ID</th><th>标注者</th><th>指标</th><th>值</th><th>相关案例</th><th>备注</th></tr></thead><tbody>';
+
+  allEntries.forEach(e => {
+    const tagClass = e.annotator === 'ai' ? 'tag-ai' : 'tag-human';
+    const tagText = e.annotator === 'ai' ? 'AI' : '人工';
+    const relClass = (e.relevantLogIds && e.relevantLogIds.length > 0) ? 'has' : '';
+    const relCount = e.relevantLogIds ? e.relevantLogIds.length : 0;
+    const relText = relCount > 0 ? relCount + ' 条' : '无';
+
+    html += `<tr onclick="editEntry('${e.id}')" id="row-${e.id}">
+      <td style="font-weight:600">${e.id}</td>
+      <td><span class="tag ${tagClass}">${tagText}</span></td>
+      <td>${e.indexName || e.indexCode}</td>
+      <td style="font-weight:600">${e.dataValue}</td>
+      <td><span class="rel-count ${relClass}">${relText}</span></td>
+      <td class="notes-cell" title="${esc(e.notes)}">${e.notes}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function editEntry(id) {
+  editingId = id;
+  const e = allEntries.find(x => x.id === id);
+  if (!e) return;
+
+  currentRelIds = [...(e.relevantLogIds || [])];
+
+  document.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+  document.getElementById('row-' + id).classList.add('selected');
+
+  document.getElementById('modal-title').textContent = '编辑: ' + id;
+  document.getElementById('edit-annotator').value = e.annotator || 'ai';
+  document.getElementById('edit-indexCode').value = e.indexCode;
+  document.getElementById('edit-indexName').value = e.indexName || '';
+  document.getElementById('edit-dataValue').value = e.dataValue;
+  document.getElementById('edit-notes').value = e.notes || '';
+  renderRelTags(currentRelIds);
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function renderRelTags(ids) {
+  const wrap = document.getElementById('edit-rel-tags');
+  wrap.innerHTML = ids.map(id =>
+    `<span class="id-tag">${id}<span class="remove" onclick="removeRelId(${id})">×</span></span>`
+  ).join('');
+}
+
+function removeRelId(id) {
+  currentRelIds = currentRelIds.filter(x => x !== id);
+  renderRelTags(currentRelIds);
+}
+
+function addRelId() {
+  const inp = document.getElementById('edit-rel-input');
+  const val = parseInt(inp.value);
+  if (isNaN(val)) return;
+  if (!currentRelIds.includes(val)) {
+    currentRelIds.push(val);
+    renderRelTags(currentRelIds);
+  }
+  inp.value = '';
+}
+
+document.getElementById('edit-rel-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addRelId(); }
+});
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+  editingId = null;
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function saveEntry() {
+  if (!editingId) return;
+  const entry = allEntries.find(x => x.id === editingId);
+  if (!entry) return;
+
+  const updated = {
+    id: editingId,
+    annotator: document.getElementById('edit-annotator').value,
+    indexCode: entry.indexCode,
+    indexName: entry.indexName,
+    dataValue: entry.dataValue,
+    relevantLogIds: currentRelIds,
+    notes: document.getElementById('edit-notes').value
+  };
+
+  try {
+    const r = await fetch(API + '/evaluation/ground-truth/' + editingId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    const d = await r.json();
+    if (d.code !== '00000') { showToast('保存失败: ' + d.message, 'err'); return; }
+    const idx = allEntries.findIndex(x => x.id === editingId);
+    allEntries[idx] = d.data;
+    renderStats();
+    renderTable();
+    closeModal();
+    showToast('✅ 已保存: ' + editingId, 'ok');
+  } catch (e) { showToast('网络错误', 'err'); }
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+function esc(s) { return s ? s.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+load();
+</script>
+</body>
+</html>

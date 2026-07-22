@@ -6,6 +6,7 @@ import io.github.accontra.eval.application.pipeline.EvaluationContext;
 import io.github.accontra.eval.application.service.EvaluationDomainService;
 import io.github.accontra.eval.application.service.RagCompareTracker;
 import io.github.accontra.eval.application.service.SimilarCaseService;
+import io.github.accontra.eval.application.service.GroundTruthService;
 import io.github.accontra.eval.common.Result;
 import io.github.accontra.eval.domain.model.EvalAiExperiment;
 import io.github.accontra.eval.domain.model.EvalIndex;
@@ -31,17 +32,20 @@ public class EvaluationController {
     private final EvalAiExperimentMapper experimentMapper;
     private final SimilarCaseService similarCaseService;
     private final RagCompareTracker ragCompareTracker;
+    private final GroundTruthService groundTruthService;
 
     public EvaluationController(EvaluationDomainService domainService,
                                  EvalObjectLogMapper objectLogMapper,
                                  EvalAiExperimentMapper experimentMapper,
                                  SimilarCaseService similarCaseService,
-                                 RagCompareTracker ragCompareTracker) {
+                                 RagCompareTracker ragCompareTracker,
+                                 GroundTruthService groundTruthService) {
         this.domainService = domainService;
         this.objectLogMapper = objectLogMapper;
         this.experimentMapper = experimentMapper;
         this.similarCaseService = similarCaseService;
         this.ragCompareTracker = ragCompareTracker;
+        this.groundTruthService = groundTruthService;
     }
 
     /** 执行单对象评估 */
@@ -154,6 +158,21 @@ public class EvaluationController {
     @GetMapping("/rag-compare/stats")
     public Result<Map<String, Object>> ragCompareStats() {
         return Result.ok(ragCompareTracker.getStats());
+    }
+
+    /** A3.3: Ground Truth 标注列表 */
+    @GetMapping("/ground-truth")
+    public Result<List<GroundTruthService.GroundTruthEntry>> listGroundTruth() {
+        return Result.ok(groundTruthService.listAll());
+    }
+
+    /** A3.3: 更新单条 Ground Truth 标注 */
+    @PostMapping("/ground-truth/{id}")
+    public Result<GroundTruthService.GroundTruthEntry> updateGroundTruth(
+            @PathVariable("id") String id,
+            @RequestBody GroundTruthService.GroundTruthEntry entry) {
+        var updated = groundTruthService.update(id, entry);
+        return updated != null ? Result.ok(updated) : Result.fail("E0001", "更新失败, id=" + id);
     }
 
     /** A4: 韧性状态 */

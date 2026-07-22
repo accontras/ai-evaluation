@@ -1,7 +1,7 @@
 package io.github.accontra.eval.runner;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import cn.hutool.json.JSONUtil;
+import io.github.accontra.eval.application.service.GroundTruthService;
 import io.github.accontra.eval.application.service.RagCompareTracker;
 import io.github.accontra.eval.application.service.RagQualityService;
 import io.github.accontra.eval.application.service.SimilarCaseService;
@@ -12,8 +12,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,7 +25,7 @@ import java.util.*;
  *
  * 工作流:
  *   1. 检查 RAG 服务可用性
- *   2. 加载 data/rag-ground-truth.json
+ *   2. 加载 data/rag-ground-truth.json (via GroundTruthService)
  *   3. 逐条检索 (向量 + 规则) → 写入 DB
  *   4. 汇总 HR@K / NDCG@K
  *   5. 输出 results.json
@@ -37,24 +35,24 @@ import java.util.*;
 public class RagQualityEvalRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(RagQualityEvalRunner.class);
-    private static final int TOP_K = 5;  // = max(K_VALUES), 保证 K=5 评测有足够结果
+    private static final int TOP_K = 5;
     private static final int[] K_VALUES = {1, 3, 5};
 
     private final VectorRagService vectorRagService;
     private final SimilarCaseService similarCaseService;
     private final RagCompareTracker ragCompareTracker;
     private final RagQualityService ragQualityService;
-    private final ObjectMapper objectMapper;
+    private final GroundTruthService groundTruthService;
 
     public RagQualityEvalRunner(VectorRagService vectorRagService,
                                 SimilarCaseService similarCaseService,
                                 RagCompareTracker ragCompareTracker,
-                                ObjectMapper objectMapper) {
+                                GroundTruthService groundTruthService) {
         this.vectorRagService = vectorRagService;
         this.similarCaseService = similarCaseService;
         this.ragCompareTracker = ragCompareTracker;
         this.ragQualityService = new RagQualityService();
-        this.objectMapper = objectMapper;
+        this.groundTruthService = groundTruthService;
     }
 
     @Override
@@ -69,12 +67,7 @@ public class RagQualityEvalRunner implements CommandLineRunner {
         log.info("[RAG-Eval] 服务可用性检查通过");
 
         // Step 2: 加载 ground truth
-        Path gtPath = Paths.get("data", "rag-ground-truth.json");
-        if (!Files.exists(gtPath)) {
-            log.error("[RAG-Eval] ground truth 文件不存在: {}", gtPath.toAbsolutePath());
-            System.exit(1);
-        }
-        List<GroundTruthEntry> groundTruths = loadGroundTruth(gtPath);
+        List<GroundTruthService.GroundTruthEntry> groundTruths = groundTruthService.listAll();
         if (groundTruths.isEmpty()) {
             log.error("[RAG-Eval] ground truth 为空或格式错误");
             System.exit(1);
@@ -85,7 +78,7 @@ public class RagQualityEvalRunner implements CommandLineRunner {
         List<RagQualityService.QueryResult> vectorQueryResults = new ArrayList<>();
         List<RagQualityService.QueryResult> ruleQueryResults = new ArrayList<>();
 
-        for (GroundTruthEntry gt : groundTruths) {
+        for (var gt : groundTruths) {
             log.info("[RAG-Eval] 评测: {} ({} = {})", gt.id(), gt.indexCode(), gt.dataValue());
             Set<Long> relSet = new HashSet<>(gt.relevantLogIds());
 
@@ -108,9 +101,7 @@ public class RagQualityEvalRunner implements CommandLineRunner {
             ragCompareTracker.record(
                     gt.id(), "RAG-EVAL", gt.indexCode(), gt.indexName(), gt.dataValue(),
                     vectorIds, ruleIds, vectorSims,
-                    vectorHit, ruleHit,
-                    null  // groundTruthRel 只在 summary 阶段汇总, DB 存每条的 rel
-            );
+                    vectorHit, ruleHit, null);
 
             // 收集用于指标计算
             vectorQueryResults.add(new RagQualityService.QueryResult(vectorRel));
@@ -130,21 +121,13 @@ public class RagQualityEvalRunner implements CommandLineRunner {
         Path outDir = Paths.get("data", "rag-eval-results");
         Files.createDirectories(outDir);
         Path outFile = outDir.resolve("results.json");
-        objectMapper.writerWithDefaultPrettyPrinter().writeValue(outFile.toFile(), report);
+        Files.writeString(outFile, JSONUtil.toJsonPrettyStr(report));
         log.info("[RAG-Eval] 结果已输出: {}", outFile.toAbsolutePath());
 
-        // 控制台打印对比表
         printSummary(vectorHR, ruleHR, vectorNdcg, ruleNdcg);
 
         log.info("=== RAG 检索质量评测 完成 ===");
         System.exit(0);
-    }
-
-    // ============ helpers ============
-
-    private List<GroundTruthEntry> loadGroundTruth(Path path) throws IOException {
-        return objectMapper.readValue(path.toFile(),
-                new TypeReference<List<GroundTruthEntry>>() {});
     }
 
     private List<Long> extractIds(List<VectorRagService.SimilarCase> cases) {
@@ -171,17 +154,12 @@ public class RagQualityEvalRunner implements CommandLineRunner {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("totalQueries", totalQueries);
         report.put("kValues", List.of(1, 3, 5));
-
         Map<String, Object> hr = new LinkedHashMap<>();
-        hr.put("vector", vHR);
-        hr.put("rule", rHR);
+        hr.put("vector", vHR); hr.put("rule", rHR);
         report.put("hitRate", hr);
-
         Map<String, Object> ndcg = new LinkedHashMap<>();
-        ndcg.put("vector", vNdcg);
-        ndcg.put("rule", rNdcg);
+        ndcg.put("vector", vNdcg); ndcg.put("rule", rNdcg);
         report.put("ndcg", ndcg);
-
         return report;
     }
 
@@ -192,10 +170,8 @@ public class RagQualityEvalRunner implements CommandLineRunner {
         System.out.println("========================================");
         System.out.printf("%-10s %12s %12s %12s%n", "指标", "K=1", "K=3", "K=5");
         System.out.println("----------------------------------------");
-        printRow("向量 HR", vHR);
-        printRow("规则 HR", rHR);
-        printRow("向量 NDCG", vNdcg);
-        printRow("规则 NDCG", rNdcg);
+        printRow("向量 HR", vHR); printRow("规则 HR", rHR);
+        printRow("向量 NDCG", vNdcg); printRow("规则 NDCG", rNdcg);
         System.out.println("========================================\n");
     }
 
@@ -206,9 +182,4 @@ public class RagQualityEvalRunner implements CommandLineRunner {
                 data.getOrDefault(3, 0.0) * 100,
                 data.getOrDefault(5, 0.0) * 100);
     }
-
-    /** Ground truth JSON 条目 */
-    public record GroundTruthEntry(
-            String id, String indexCode, String indexName,
-            String dataValue, List<Long> relevantLogIds, String notes) {}
 }

@@ -47,16 +47,25 @@ management:
         include: health,info
 
 llm:
-  provider: deepseek
-  api-key: ${LLM_API_KEY:sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
-  base-url: https://api.deepseek.com
-  model: deepseek-chat
-  alt-models:
-    - provider: deepseek
-      base-url: https://api.deepseek.com
-      model: deepseek-chat
-      label: "DeepSeek(t=0.1)"
-      temperature: 0.1
+  primary:
+    provider: deepseek
+    api-key: ${DEEPSEEK_API_KEY:sk-0e7c2ba3e6ac4ef1867deddb70494bf8}
+    base-url: https://api.deepseek.com
+    model: deepseek-chat
+    temperature: 0.3
+  fallbacks:
+    - provider: glm
+      api-key: ${GLM_API_KEY:b5c808855df04b42b5e58a2ea92d6d65.O62WtUUrTkKGduYC}
+      base-url: https://open.bigmodel.cn/api/paas/v4
+      model: glm-4.5-air
+      temperature: 0.3
+  retry:
+    max-retries: 1
+  circuit:
+    threshold: 5
+    half-open-ms: 30000
+  token-budget:
+    max-per-eval: 8000
 
 ---
 spring:

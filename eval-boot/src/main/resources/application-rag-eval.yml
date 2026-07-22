@@ -1,0 +1,16 @@
+# RAG 检索质量跑批评测 — 命令行模式
+spring:
+  config:
+    activate:
+      on-profile: rag-eval
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:mysql://localhost:3306/eval_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+logging:
+  level:
+    io.github.accontra.eval: INFO

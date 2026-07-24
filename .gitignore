@@ -20,6 +20,7 @@ Thumbs.db
 # Env (don't commit API keys)
 .env
 application-default.yml
+restart.sh
 
 # RAG runtime data
 data/
